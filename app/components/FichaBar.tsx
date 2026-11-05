@@ -55,8 +55,10 @@ export default function FichaBar({ bar, puedeActualizar, onActualizar, onCerrar 
                 </p>
                 <p className="flex items-center gap-1.5 text-[13px] text-white/60">
                   <span className="h-2 w-2 rounded-full" style={{ background: marca.color }} />
-                  {marca.nombre}
-                  {p.confirmaciones >= 2 && <span className="text-ambar">, confirmado por {p.confirmaciones}</span>}
+                  <span>
+                    {marca.nombre}
+                    {p.confirmaciones >= 2 && <span className="text-ambar">, confirmado por {p.confirmaciones}</span>}
+                  </span>
                 </p>
               </div>
               <p className="text-[30px] font-extrabold tabular-nums tracking-[-0.04em] text-ambar">{euros(p.precio)} €</p>

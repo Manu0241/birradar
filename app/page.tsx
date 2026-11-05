@@ -48,6 +48,12 @@ export default function Home() {
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const temporizadorAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hojaRef = useRef<HTMLDivElement>(null);
+
+  // Al cambiar entre lista y ficha, volver arriba de la hoja
+  useEffect(() => {
+    hojaRef.current?.scrollTo({ top: 0 });
+  }, [seleccionadoId]);
 
   const avisar = useCallback((texto: string) => {
     setAviso(texto);
@@ -326,7 +332,7 @@ export default function Home() {
         >
           <span className="h-1.5 w-12 rounded-full bg-tinta/15" />
         </button>
-        <div className="min-h-0 flex-1 overflow-y-auto pb-28">
+        <div ref={hojaRef} className="min-h-0 flex-1 overflow-y-auto pb-28">
           {seleccionado ? (
             <FichaBar
               bar={seleccionado}
