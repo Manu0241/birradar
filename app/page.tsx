@@ -13,6 +13,8 @@ import FormularioPrecio, { type DatosPrecio } from "./components/FormularioPreci
 import Perfil, { type FilaRanking } from "./components/Perfil";
 import Bienvenida from "./components/Bienvenida";
 import GuiaInstalarIOS from "./components/GuiaInstalarIOS";
+import Novedades from "./components/Novedades";
+import { NOVEDADES, ULTIMA_NOVEDAD, type Novedad } from "@/lib/novedades";
 import { useInstalacion } from "@/lib/instalar";
 
 const CENTRO_INICIAL: Coordenadas = [40.489, -3.667];
@@ -30,10 +32,14 @@ const diaMadrid = (offsetDias = 0) =>
 const guardar = (k: string, sesion = false) => {
   try { (sesion ? sessionStorage : localStorage).setItem(k, "1"); } catch {}
 };
+const marcarNovedadesVistas = () => {
+  try { localStorage.setItem("novedadVista", String(ULTIMA_NOVEDAD)); } catch {}
+};
 
 export default function Home() {
   const [splash, setSplash] = useState<"visible" | "saliendo" | "fuera">("visible");
   const [bienvenida, setBienvenida] = useState(false);
+  const [novedades, setNovedades] = useState<Novedad[]>([]);
 
   const [datos, setDatos] = useState<BarDB[]>([]);
   const [centro, setCentro] = useState<Coordenadas>(CENTRO_INICIAL);
@@ -157,6 +163,13 @@ export default function Home() {
       setSplash("fuera");
       guardar("splashVisto", true);
       if (!leer("tutorialVisto2")) setBienvenida(true);
+      else {
+        // Novedades desde la última vez que abrió la app
+        // Sin registro aún: ya vio el tutorial nuevo, que cubre las novedades 1 a 3
+        const vista = Number(leer("novedadVista") ?? "3") || 0;
+        const pendientes = NOVEDADES.filter((n) => n.id > vista);
+        if (pendientes.length) setNovedades(pendientes);
+      }
     }, yaVisto ? 0 : 1500);
 
     // Enlace directo a un bar: /?bar=<id> (desde las páginas de cada bar)
@@ -475,7 +488,7 @@ export default function Home() {
         </div>
       )}
 
-      {avisoVisitas && instalar && !bienvenida && splash === "fuera" && !formulario && (
+      {avisoVisitas && instalar && !bienvenida && novedades.length === 0 && splash === "fuera" && !formulario && (
         <div className="entra absolute inset-x-4 top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] z-[55] flex items-center gap-3 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-tinta/10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icono-192.png" alt="" className="h-11 w-11 rounded-xl" />
@@ -531,12 +544,23 @@ export default function Home() {
         />
       )}
 
+      {novedades.length > 0 && !bienvenida && (
+        <Novedades
+          novedades={novedades}
+          onCerrar={() => {
+            marcarNovedadesVistas();
+            setNovedades([]);
+          }}
+        />
+      )}
+
       {bienvenida && (
         <Bienvenida
           instalacion={instalacion}
           onGuiaIOS={() => setGuiaIOS(true)}
           onTerminar={() => {
             guardar("tutorialVisto2");
+            marcarNovedadesVistas();
             setBienvenida(false);
           }}
         />
