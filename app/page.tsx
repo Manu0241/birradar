@@ -355,12 +355,12 @@ export default function Home() {
       {!seleccionado && (
         <button
           onClick={anadirPrecio}
-          className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-granate py-2 pl-2 pr-6 text-[17px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(139,0,0,0.7)] active:scale-95"
+          className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full bg-granate py-2 pl-2 pr-6 text-[17px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(139,0,0,0.7)] active:scale-95"
         >
           <span className="posavasos h-10 w-10 text-xl">
             <span className="relative z-10 -mt-0.5">+</span>
           </span>
-          {usuario ? "Añadir precio" : "Entra para añadir precios"}
+          Añadir precio
         </button>
       )}
 

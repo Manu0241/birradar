@@ -3,9 +3,12 @@ import { Map, Overlay } from "pigeon-maps";
 import type { Bar, Coordenadas } from "@/lib/bares";
 import { euros } from "@/lib/bares";
 
-// Mapa claro de CARTO (gratis con atribución), más limpio que el de OSM por defecto
-const cartoVoyager = (x: number, y: number, z: number, dpr?: number) =>
-  `https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}${dpr && dpr >= 2 ? "@2x" : ""}.png`;
+// Mapa de Mapbox con tu token (si no hay token, mapa normal de OpenStreetMap)
+const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+const proveedor = (x: number, y: number, z: number, dpr?: number) =>
+  TOKEN
+    ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/${z}/${x}/${y}${dpr && dpr >= 2 ? "@2x" : ""}?access_token=${TOKEN}`
+    : `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
 type Props = {
   centro: Coordenadas;
@@ -23,7 +26,7 @@ export default function Mapa({ centro, zoom, bares, miUbicacion, seleccionadoId,
 
   return (
     <Map
-      provider={cartoVoyager}
+      provider={proveedor}
       dprs={[1, 2]}
       center={centro}
       zoom={zoom}
@@ -33,8 +36,12 @@ export default function Mapa({ centro, zoom, bares, miUbicacion, seleccionadoId,
       onClick={onTocarMapa}
       attribution={
         <span className="text-[10px]">
-          © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> ©{" "}
-          <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>
+          {TOKEN && (
+            <>
+              © <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noreferrer">Mapbox</a>{" "}
+            </>
+          )}
+          © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>
         </span>
       }
       attributionPrefix={false}
