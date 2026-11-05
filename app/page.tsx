@@ -1,550 +1,411 @@
 "use client";
-import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase"; 
-import { Map, Marker, Overlay } from "pigeon-maps"; 
-import Image from "next/image"; 
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
+import { type Bar, type BarDB, type Coordenadas, distanciaKm, nivelDeXp, procesarBares } from "@/lib/bares";
+import { marcasPorPopularidad } from "@/lib/marcas";
+import Mapa from "./components/Mapa";
+import ListaBares, { type Orden } from "./components/ListaBares";
+import FichaBar from "./components/FichaBar";
+import FormularioPrecio, { type DatosPrecio } from "./components/FormularioPrecio";
+import Perfil, { type FilaRanking } from "./components/Perfil";
+import Bienvenida from "./components/Bienvenida";
+
+const CENTRO_INICIAL: Coordenadas = [40.489, -3.667];
+const RADIO_MISMO_BAR_KM = 0.05; // a menos de 50 m damos por hecho que estás en ese bar
+const RADIO_ACTUALIZAR_KM = 0.15; // para actualizar un bar desde su ficha hay que estar cerca
+const URL_APP = "https://birradar.vercel.app/";
+
+const leer = (k: string) => {
+  try { return localStorage.getItem(k) ?? sessionStorage.getItem(k); } catch { return null; }
+};
+const guardar = (k: string, sesion = false) => {
+  try { (sesion ? sessionStorage : localStorage).setItem(k, "1"); } catch {}
+};
 
 export default function Home() {
-  const [splashActivo, setSplashActivo] = useState(true);
-  const [splashVisible, setSplashVisible] = useState(true);
+  const [splash, setSplash] = useState<"visible" | "saliendo" | "fuera">("visible");
+  const [bienvenida, setBienvenida] = useState(false);
 
-  const [estaMontado, setEstaMontado] = useState(false);
-  const [abrirResena, setAbrirResena] = useState(false);
-  const [cargando, setCargando] = useState(false);
-  
-  const [usuario, setUsuario] = useState<any>(null);
-  const [perfil, setPerfil] = useState<{ xp: number; nivel: number } | null>(null);
-  
-  const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false);
-  const [vistaPerfil, setVistaPerfil] = useState<'yo' | 'ranking'>('yo');
-  const [rankingUsuarios, setRankingUsuarios] = useState<any[]>([]);
-
-  const [baresDescubiertos, setBaresDescubiertos] = useState(0);
-  const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
-
-  const [coordenadas, setCoordenadas] = useState<[number, number]>([40.505, -3.665]);
-  const [barSeleccionado, setBarSeleccionado] = useState<any | null>(null);
-  
-  const [filtroMarca, setFiltroMarca] = useState("");
-  const [filtroTapa, setFiltroTapa] = useState("");
-  const [filtroPrecioMax, setFiltroPrecioMax] = useState(6.00);
-
-  const [nombreBar, setNombreBar] = useState("");
-  const [precio, setPrecio] = useState(2.50);
-  const [marca, setMarca] = useState("");
-  const [formato, setFormato] = useState("");
-  const [tapa, setTapa] = useState("");
+  const [datos, setDatos] = useState<BarDB[]>([]);
+  const [centro, setCentro] = useState<Coordenadas>(CENTRO_INICIAL);
   const [zoom, setZoom] = useState(15);
-  
-  const [ranking, setRanking] = useState<any[]>([]); 
-  const [modoAuditoria, setModoAuditoria] = useState<any | null>(null);
+  const [miUbicacion, setMiUbicacion] = useState<Coordenadas | null>(null);
+  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
 
-  // --- NUEVO: Estados para el Tutorial ---
-  const [mostrarTutorial, setMostrarTutorial] = useState(false);
-  const [pasoTutorial, setPasoTutorial] = useState(0);
+  const [orden, setOrden] = useState<Orden>("cerca");
+  const [filtroMarca, setFiltroMarca] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [hojaAlta, setHojaAlta] = useState(false);
 
-  const marcasCerveza = [
-    "🔴 Mahou", "⭐️ E. Galicia", "🦅 Águila", "🟢 Cruzcampo", 
-    "🦁 San Miguel", "☀️ Sol", "🦌 Jäger/Radler", "⛵️ Alhambra", 
-    "🌍 Heineken", "🏁 Amstel", "🐐 Artesanal/Otra"
-  ];
+  const [usuario, setUsuario] = useState<User | null>(null);
+  const [perfil, setPerfil] = useState<{ xp: number; nombre: string; avatar: string } | null>(null);
+  const [ranking, setRanking] = useState<FilaRanking[]>([]);
+  const [perfilAbierto, setPerfilAbierto] = useState(false);
 
-  // --- NUEVO: Pasos del tutorial ---
-  const pasosTutorial = [
-    { titulo: "¡Bienvenido a Birradar!", desc: "Tu radar definitivo de tapas y cervezas. ¿Listo para mapear el barrio?", icono: "🗺️" },
-    { titulo: "Explora y Ubica", desc: "Muévete por el mapa libremente y usa el botón 📍 para encontrar los locales más cercanos a ti.", icono: "📍" },
-    { titulo: "Sube de Nivel", desc: "Añade nuevos bares 🍺 para ganar +10 XP. Si el bar ya existe, audita sus precios para ganar +5 XP.", icono: "🏆" },
-    { titulo: "Regla de Consenso", desc: "Los precios solo cambian si 3 usuarios distintos confirman la modificación. ¡Comunidad real!", icono: "⚖️" },
-    { titulo: "¡Compite!", desc: "Escala en el Ranking Global y comparte la app con tus amigos para ver quién es el Maestro Cervecero.", icono: "📲" }
-  ];
+  const [formulario, setFormulario] = useState<{ bar: Bar | null; ubicacion: Coordenadas } | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const temporizadorAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const fadeTimer = setTimeout(() => setSplashVisible(false), 4500);
-    const removeTimer = setTimeout(() => {
-      setSplashActivo(false);
-      // Tras el splash, comprobamos si debe ver el tutorial
-      const visto = localStorage.getItem("tutorialVisto");
-      if (!visto) setMostrarTutorial(true);
-    }, 5000);
-    return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
+  const avisar = useCallback((texto: string) => {
+    setAviso(texto);
+    if (temporizadorAviso.current) clearTimeout(temporizadorAviso.current);
+    temporizadorAviso.current = setTimeout(() => setAviso(null), 3200);
   }, []);
 
-  const finalizarTutorial = () => {
-    localStorage.setItem("tutorialVisto", "true");
-    setMostrarTutorial(false);
+  // ---------- Datos ----------
+  const cargarBares = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("bares")
+      .select("id, nombre, latitud, longitud, resenas ( id, precio, marca, formato, tapa, user_id, fecha )");
+    if (error) console.error(error);
+    else setDatos((data ?? []) as BarDB[]);
+  }, []);
+
+  const cargarRanking = useCallback(async () => {
+    const { data } = await supabase.from("perfiles").select("id, nombre, avatar_url, xp").order("xp", { ascending: false }).limit(20);
+    if (data) setRanking(data as FilaRanking[]);
+  }, []);
+
+  /** Lee el perfil (lo crea la primera vez). Los puntos los pone la base de datos, nunca la app. */
+  const cargarPerfil = useCallback(async (u: User): Promise<number> => {
+    const meta = u.user_metadata ?? {};
+    let { data } = await supabase.from("perfiles").select("nombre, avatar_url, xp").eq("id", u.id).maybeSingle();
+    if (!data) {
+      await supabase.from("perfiles").insert({ id: u.id, nombre: meta.full_name ?? "Cazador novato", avatar_url: meta.avatar_url ?? "" });
+      ({ data } = await supabase.from("perfiles").select("nombre, avatar_url, xp").eq("id", u.id).maybeSingle());
+    }
+    const xp = data?.xp ?? 0;
+    setPerfil({ xp, nombre: data?.nombre ?? meta.full_name ?? "Tú", avatar: data?.avatar_url || meta.avatar_url || "" });
+    return xp;
+  }, []);
+
+  const ubicar = useCallback(
+    () =>
+      new Promise<Coordenadas | null>((resolver) => {
+        if (!("geolocation" in navigator)) return resolver(null);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const c: Coordenadas = [pos.coords.latitude, pos.coords.longitude];
+            setMiUbicacion(c);
+            resolver(c);
+          },
+          () => resolver(null),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        );
+      }),
+    []
+  );
+
+  useEffect(() => {
+    // Splash corto, y solo una vez por visita
+    const yaVisto = leer("splashVisto");
+    const t1 = setTimeout(() => setSplash("saliendo"), yaVisto ? 0 : 1100);
+    const t2 = setTimeout(() => {
+      setSplash("fuera");
+      guardar("splashVisto", true);
+      if (!leer("tutorialVisto")) setBienvenida(true);
+    }, yaVisto ? 0 : 1500);
+
+    cargarBares();
+    cargarRanking();
+    ubicar().then((c) => c && setCentro(c));
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUsuario(session?.user ?? null);
+      if (session?.user) cargarPerfil(session.user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUsuario(session?.user ?? null);
+      if (session?.user) cargarPerfil(session.user);
+      else setPerfil(null);
+    });
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      subscription.unsubscribe();
+    };
+  }, [cargarBares, cargarRanking, cargarPerfil, ubicar]);
+
+  // ---------- Derivados ----------
+  const bares = useMemo(() => procesarBares(datos, miUbicacion), [datos, miUbicacion]);
+
+  const marcasOrdenadas = useMemo(() => {
+    const ref = miUbicacion ?? CENTRO_INICIAL;
+    return marcasPorPopularidad(
+      datos.flatMap((b) =>
+        (b.resenas ?? []).map((r) => ({ marca: r.marca, cerca: distanciaKm(ref, [b.latitud, b.longitud]) < 3 }))
+      )
+    );
+  }, [datos, miUbicacion]);
+
+  const visibles = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    const ref = miUbicacion ?? centro;
+    const lejania = (b: Bar) => b.distanciaKm ?? distanciaKm(ref, [b.latitud, b.longitud]);
+    return bares
+      .filter((b) => !filtroMarca || b.precios.some((p) => p.marca === filtroMarca))
+      .filter((b) => !texto || b.nombre.toLowerCase().includes(texto))
+      .filter((b) => orden !== "tapa" || b.tapa !== "No")
+      .sort((a, b) =>
+        orden === "barato" ? a.precioDesde - b.precioDesde || lejania(a) - lejania(b) : lejania(a) - lejania(b)
+      );
+  }, [bares, busqueda, filtroMarca, orden, miUbicacion, centro]);
+
+  const seleccionado = bares.find((b) => b.id === seleccionadoId) ?? null;
+  const puedeActualizar =
+    !!seleccionado && !!miUbicacion && distanciaKm(miUbicacion, [seleccionado.latitud, seleccionado.longitud]) <= RADIO_ACTUALIZAR_KM;
+  const descubiertos = usuario ? datos.filter((b) => b.resenas?.some((r) => r.user_id === usuario.id)).length : 0;
+
+  // ---------- Acciones ----------
+  const entrar = () =>
+    supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } }).then(({ error }) => {
+      if (error) avisar("No se pudo conectar con Google. Inténtalo de nuevo.");
+    });
+
+  const elegirBar = (bar: Bar) => {
+    setSeleccionadoId(bar.id);
+    setCentro([bar.latitud, bar.longitud]);
+    setHojaAlta(false);
+  };
+
+  const centrarEnMi = async () => {
+    const c = await ubicar();
+    if (c) {
+      setCentro(c);
+      setZoom((z) => Math.max(z, 15));
+    } else avisar("No podemos ver tu ubicación. Activa el permiso de ubicación del navegador.");
+  };
+
+  const anadirPrecio = async () => {
+    if (!usuario) return entrar();
+    const pos = await ubicar();
+    if (!pos) return avisar("Activa la ubicación para añadir un precio: así sabemos en qué bar estás.");
+    const masCercano = [...bares].sort(
+      (a, b) => distanciaKm(pos, [a.latitud, a.longitud]) - distanciaKm(pos, [b.latitud, b.longitud])
+    )[0];
+    const enEseBar = masCercano && distanciaKm(pos, [masCercano.latitud, masCercano.longitud]) <= RADIO_MISMO_BAR_KM;
+    setFormulario({ bar: enEseBar ? masCercano : null, ubicacion: pos });
+  };
+
+  const actualizarSeleccionado = () => {
+    if (!usuario) return entrar();
+    if (seleccionado && miUbicacion) setFormulario({ bar: seleccionado, ubicacion: miUbicacion });
+  };
+
+  const enviar = async (d: DatosPrecio) => {
+    if (!usuario || !formulario) return;
+    setEnviando(true);
+    try {
+      const xpAntes = perfil?.xp ?? 0;
+      let idBar = formulario.bar?.id;
+      if (!idBar) {
+        const { data, error } = await supabase
+          .from("bares")
+          .insert({ nombre: d.nombre, latitud: formulario.ubicacion[0], longitud: formulario.ubicacion[1] })
+          .select("id")
+          .single();
+        if (error) throw error;
+        idBar = data.id as string;
+      }
+      const { error } = await supabase.from("resenas").insert({
+        id_bar: idBar,
+        formato: d.formato,
+        precio: d.precio,
+        marca: d.marca,
+        tapa: d.tapa,
+        servicio: "Rápido",
+        user_id: usuario.id,
+      });
+      if (error) throw error;
+
+      const xp = await cargarPerfil(usuario);
+      const ganado = xp - xpAntes;
+      if (nivelDeXp(xp) > nivelDeXp(xpAntes)) avisar(`¡Subes a nivel ${nivelDeXp(xp)}! Precio guardado, +${ganado} XP`);
+      else if (ganado > 0) avisar(`Precio guardado. +${ganado} XP`);
+      else avisar("Precio guardado. Los puntos de este bar ya los ganaste hoy.");
+
+      setFormulario(null);
+      await cargarBares();
+      cargarRanking();
+      setSeleccionadoId(idBar);
+    } catch (e) {
+      console.error(e);
+      avisar("No se pudo guardar el precio. Revisa tu conexión e inténtalo de nuevo.");
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const compartirApp = async () => {
-    const shareData = {
-      title: 'Birradar',
-      text: '¡Mira este radar de bares y cervezas! Únete y compite conmigo en el ranking.',
-      url: 'https://birradar.vercel.app/' // Cambia esto por tu dominio final
-    };
+    const datosCompartir = { title: "Birradar", text: "Mira cuánto cuesta la caña en los bares de tu zona y compite conmigo en el ranking.", url: URL_APP };
     try {
-      if (navigator.share) await navigator.share(shareData);
-      else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareData.text + ' ' + shareData.url)}`, '_blank');
-    } catch (err) { console.error(err); }
+      if (navigator.share) await navigator.share(datosCompartir);
+      else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`${datosCompartir.text} ${URL_APP}`)}`, "_blank");
+    } catch {}
   };
 
-  const calcularDistancia = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; 
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; 
-  };
-
-  const cargarRanking = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('bares')
-        .select(`id, nombre, latitud, longitud, resenas ( id, precio, marca, formato, tapa, user_id )`); 
-      if (error) throw error;
-      if (data) {
-        const baresFormateados = data.map((bar: any) => {
-          const resenasValidas = bar.resenas || [];
-          const cartaBar: Record<string, any> = {};
-          resenasValidas.forEach((r: any) => { cartaBar[r.formato] = r; });
-          const formatosDisponibles = Object.values(cartaBar);
-          const precioBase = formatosDisponibles.length > 0 ? Math.min(...formatosDisponibles.map((f: any) => f.precio)) : 0;
-          const marcaBase = formatosDisponibles.length > 0 ? formatosDisponibles[0].marca : 'Desconocida';
-          const mejorTapa = formatosDisponibles.some((f: any) => f.tapa === 'Contundente') ? 'Contundente' : 
-                            formatosDisponibles.some((f: any) => f.tapa === 'Simple') ? 'Simple' : 'No';
-          return { ...bar, formatos: formatosDisponibles, precio_calculado: precioBase, marca_calculada: marcaBase, tapa_calculada: mejorTapa, numResenas: resenasValidas.length };
-        });
-        setRanking(baresFormateados.filter(b => b.formatos.length > 0));
-      }
-    } catch (error) { console.error(error); }
-  };
-
-  const cargarPerfilUsuario = async (userId: string, userMeta: any) => {
-    try {
-      let { data, error } = await supabase.from('perfiles').select('xp, nivel').eq('id', userId).single();
-      if (error && error.code === 'PGRST116') {
-        const nuevoPerfil = { id: userId, nombre: userMeta?.full_name || 'Cazador Novato', avatar_url: userMeta?.avatar_url || '', xp: 0, nivel: 1 };
-        const { data: insertado } = await supabase.from('perfiles').insert([nuevoPerfil]).select().single();
-        data = insertado;
-      }
-      if (data) setPerfil({ xp: data.xp, nivel: data.nivel });
-      const { data: misResenas } = await supabase.from('resenas').select('id_bar').eq('user_id', userId);
-      if (misResenas) setBaresDescubiertos(new Set(misResenas.map(r => r.id_bar)).size);
-    } catch (err) { console.error(err); }
-  };
-
-  const cargarRankingGlobal = async () => {
-    try {
-      const { data } = await supabase.from('perfiles').select('id, nombre, avatar_url, xp, nivel').order('xp', { ascending: false }).limit(10);
-      if (data) setRankingUsuarios(data);
-    } catch (err) { console.error(err); }
-  };
-
-useEffect(() => {
-    setEstaMontado(true);
-    cargarRanking(); 
-    cargarRankingGlobal();
-
-    // --- NUEVO: Buscar ubicación automáticamente al abrir la app ---
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (posicion) => { 
-          setCoordenadas([posicion.coords.latitude, posicion.coords.longitude]); 
-        },
-        (error) => {
-          console.log("El usuario no dio permisos de ubicación en el arranque.");
-        }
-      );
-    }
-    // ---------------------------------------------------------------
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUsuario(session?.user || null);
-      if (session?.user) cargarPerfilUsuario(session.user.id, session.user.user_metadata);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUsuario(session?.user || null);
-      if (session?.user) cargarPerfilUsuario(session.user.id, session.user.user_metadata);
-      else { setPerfil(null); setBaresDescubiertos(0); }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const iniciarSesionConGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-    if (error) alert("Error al conectar con Google");
-  };
-
-  const cerrarSesion = async () => {
-    await supabase.auth.signOut();
-    setMenuPerfilAbierto(false); 
-  };
-
-  const obtenerTituloGamificacion = (nivel: number) => {
-    if (nivel >= 10) return "Maestro Cervecero 👑";
-    if (nivel >= 5) return "Cazador de Tapas 🏹";
-    if (nivel >= 2) return "Explorador 🧭";
-    return "Principiante 🎒";
-  };
-
-  const rankingProcesado = ranking
-    .map((bar) => {
-      const dist = calcularDistancia(coordenadas[0], coordenadas[1], bar.latitud, bar.longitud);
-      return { ...bar, distanciaKm: dist };
-    })
-    .filter((bar) => {
-      const cumpleMarca = filtroMarca === "" || bar.marca_calculada === filtroMarca;
-      const cumpleTapa = filtroTapa === "" || bar.tapa_calculada === filtroTapa;
-      const cumplePrecio = bar.precio_calculado <= filtroPrecioMax;
-      const cumpleBusqueda = busqueda === "" || bar.nombre.toLowerCase().includes(busqueda.toLowerCase());
-      return cumpleMarca && cumpleTapa && cumplePrecio && cumpleBusqueda;
-    })
-    .sort((a, b) => a.distanciaKm - b.distanciaKm);
-
-  const obtenerUbicacion = () => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (posicion) => { setCoordenadas([posicion.coords.latitude, posicion.coords.longitude]); setBarSeleccionado(null); },
-        (error) => alert("No pudimos ubicarte.")
-      );
-    }
-  };
-
-  const irAlBar = (bar: any) => {
-    if (bar?.latitud && bar?.longitud) {
-      setCoordenadas([bar.latitud, bar.longitud]);
-      setBarSeleccionado(bar); 
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const abrirEnMapasExternos = (latitud: number, longitud: number) => {
-    if (!latitud || !longitud) return;
-    window.open(`http://maps.google.com/maps?daddr=${latitud},${longitud}`, "_blank");
-  };
-
-  const iniciarCreacionResena = () => {
-    if (!usuario) { iniciarSesionConGoogle(); return; }
-    const barCercano = rankingProcesado.find(b => b.distanciaKm < 0.03);
-    if (barCercano) {
-      setModoAuditoria(barCercano);
-      setNombreBar(barCercano.nombre);
-      setMarca(barCercano.marca_calculada);
-      setFormato("Caña"); setPrecio(barCercano.precio_calculado); setTapa(barCercano.tapa_calculada);
-    } else {
-      setModoAuditoria(null);
-      setNombreBar(""); setMarca(""); setFormato(""); setTapa(""); setPrecio(2.50);
-    }
-    setAbrirResena(true);
-  };
-
-  const enviarDatos = async () => {
-    if (!usuario) return alert("Debes iniciar sesión primero");
-    setCargando(true);
-    try {
-      let barId = null;
-      let esAuditoria = !!modoAuditoria;
-      if (esAuditoria) barId = modoAuditoria.id;
-      else {
-        const { data: barGuardado, error: errorBar } = await supabase.from('bares').insert([{ nombre: nombreBar, latitud: coordenadas[0], longitud: coordenadas[1] }]).select().single();
-        if (errorBar) throw errorBar;
-        barId = barGuardado.id;
-      }
-      const { error: errorResena } = await supabase.from('resenas').insert([{ id_bar: barId, formato, precio, marca, tapa, servicio: 'Rápido', user_id: usuario.id }]);
-      if (errorResena) throw errorResena;
-      const xpGanada = esAuditoria ? 5 : 10;
-      let nuevoXp = (perfil?.xp || 0) + xpGanada; 
-      let nuevoNivel = perfil?.nivel || 1;
-      let subidaDeNivel = false;
-      if (nuevoXp >= nuevoNivel * 30) { nuevoNivel += 1; subidaDeNivel = true; }
-      await supabase.from('perfiles').update({ xp: nuevoXp, nivel: nuevoNivel }).eq('id', usuario.id);
-      setPerfil({ xp: nuevoXp, nivel: nuevoNivel });
-      if (!esAuditoria) setBaresDescubiertos(prev => prev + 1); 
-      if (subidaDeNivel) alert(`🎉 ¡NIVEL ${nuevoNivel}! 🍻`);
-      else alert(`¡+${xpGanada} XP! 🐾`);
-      setAbrirResena(false);
-      cargarRanking(); cargarRankingGlobal();
-    } catch (error) { console.error(error); } finally { setCargando(false); }
-  };
-
-  const xpParaSiguienteNivel = perfil ? perfil.nivel * 30 : 30;
-  const xpActualNivel = perfil ? perfil.xp % xpParaSiguienteNivel : 0;
-  const porcentajeProgreso = perfil ? (xpActualNivel / xpParaSiguienteNivel) * 100 : 0;
-
+  // ---------- Pantalla ----------
   return (
-    <main className="h-screen w-full max-w-md mx-auto bg-[#F9FAFB] flex flex-col relative overflow-hidden font-sans shadow-2xl sm:border-x sm:border-gray-200">
-      
-      {/* --- ZONA 0: SPLASH SCREEN --- */}
-      {splashActivo && (
-        <div className={`absolute inset-0 bg-[#8B0000] z-[100] flex flex-col items-center justify-center transition-opacity duration-500 ${splashVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="animate-pulse flex flex-col items-center">
-            <div className="bg-white p-5 rounded-full shadow-2xl mb-6">
-              <Image src="/logoprincipio.png" alt="Logo" width={150} height={150} className="object-contain" priority />
-            </div>
-            <h1 className="font-black text-5xl tracking-tighter text-white italic">Birradar</h1>
+    <main className="relative mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden bg-zinc-barra sm:border-x sm:border-tinta/10">
+      {splash !== "fuera" && (
+        <div className={`absolute inset-0 z-[100] grid place-items-center bg-granate transition-opacity duration-400 ${splash === "saliendo" ? "opacity-0" : "opacity-100"}`}>
+          <div className="flex flex-col items-center">
+            <span className="grid h-36 w-36 place-items-center rounded-full bg-white shadow-2xl">
+              <Image src="/logoprincipio.png" alt="" width={112} height={112} priority className="object-contain" />
+            </span>
+            <p className="mt-5 text-5xl font-extrabold tracking-[-0.05em] text-white">Birradar</p>
           </div>
         </div>
       )}
 
-      {/* --- NUEVA ZONA: TUTORIAL (ONBOARDING) --- */}
-      {mostrarTutorial && (
-        <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-md z-[90] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white w-full rounded-[2.5rem] p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-300">
-            <div className="text-6xl mb-6 animate-bounce">{pasosTutorial[pasoTutorial].icono}</div>
-            <h2 className="text-2xl font-black text-gray-900 mb-3 tracking-tight">{pasosTutorial[pasoTutorial].titulo}</h2>
-            <p className="text-gray-500 text-sm leading-relaxed mb-8">{pasosTutorial[pasoTutorial].desc}</p>
-            
-            <div className="flex justify-between items-center gap-4">
-              {pasoTutorial > 0 ? (
-                <button onClick={() => setPasoTutorial(prev => prev - 1)} className="text-gray-400 font-bold text-xs uppercase tracking-widest px-4 py-2">Atrás</button>
-              ) : <div className="w-12"></div>}
-              
-              <div className="flex gap-1.5">
-                {pasosTutorial.map((_, i) => (
-                  <div key={i} className={`h-1.5 rounded-full transition-all ${pasoTutorial === i ? 'w-6 bg-[#8B0000]' : 'w-1.5 bg-gray-200'}`}></div>
-                ))}
-              </div>
+      {/* Mapa */}
+      <section className="relative shrink-0 transition-[height] duration-300 ease-out" style={{ height: hojaAlta ? "24dvh" : "58dvh" }} aria-label="Mapa de bares">
+        <Mapa
+          centro={centro}
+          zoom={zoom}
+          bares={visibles}
+          miUbicacion={miUbicacion}
+          seleccionadoId={seleccionadoId}
+          onMover={(c, z) => {
+            setCentro(c);
+            setZoom(z);
+          }}
+          onElegirBar={elegirBar}
+          onTocarMapa={() => setSeleccionadoId(null)}
+        />
 
-              {pasoTutorial < pasosTutorial.length - 1 ? (
-                <button onClick={() => setPasoTutorial(prev => prev + 1)} className="bg-gray-900 text-white font-black px-6 py-2.5 rounded-full text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform">Siguiente</button>
-              ) : (
-                <button onClick={finalizarTutorial} className="bg-[#8B0000] text-white font-black px-6 py-2.5 rounded-full text-xs uppercase tracking-widest shadow-lg shadow-red-900/20 active:scale-95 transition-transform">¡Vamos!</button>
-              )}
-            </div>
-            <button onClick={finalizarTutorial} className="absolute top-6 right-6 text-gray-300 text-xs font-bold hover:text-gray-500">Saltar</button>
-          </div>
-        </div>
-      )}
-
-      {/* --- MAPA --- */}
-      <div className="h-[45%] bg-[#e5e5e5] relative w-full z-0">
-        {estaMontado && (
-          <Map 
-            center={coordenadas} 
-            zoom={zoom} 
-            onBoundsChanged={({ center, zoom }) => { 
-              setCoordenadas(center); 
-              setZoom(zoom); 
-            }} 
-            onClick={({ latLng }) => { 
-              setCoordenadas(latLng); 
-              setBarSeleccionado(null); 
-            }}
-          >
-            <Marker width={45} anchor={coordenadas} color="#3B82F6" />
-            {rankingProcesado.map((bar) => (
-              <Marker key={bar.id} width={barSeleccionado?.id === bar.id ? 55 : 38} anchor={[bar.latitud, bar.longitud]} color={barSeleccionado?.id === bar.id ? "#D4AF37" : "#8B0000"} onClick={() => setBarSeleccionado(bar)} />
-            ))}
-            {barSeleccionado && (
-              <Overlay anchor={[barSeleccionado.latitud, barSeleccionado.longitud]} offset={[0, -50]}>
-                <div className="bg-white p-3 rounded-2xl shadow-xl border border-gray-100 w-[210px] text-gray-900 text-sm relative">
-                  <button onClick={(e) => { e.stopPropagation(); setBarSeleccionado(null); }} className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 w-6 h-6 flex items-center justify-center rounded-full bg-gray-50 font-bold text-xs z-10">✕</button>
-                  <h4 className="font-bold text-gray-800 capitalize text-base border-b border-gray-100 pb-2 pr-6 truncate">{barSeleccionado.nombre}</h4>
-                  <div className="mt-2 text-xs text-gray-600">
-                    <p className="flex items-center gap-1 mb-2">🍺 <span className="font-medium truncate">{barSeleccionado.marca_calculada}</span></p>
-                    <div className="bg-amber-50/50 p-2 rounded-xl border border-amber-100/50 space-y-1.5">
-                      {barSeleccionado.formatos.map((f: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center">
-                          <span className="font-bold text-gray-700 text-[11px]">{f.formato} {f.tapa === 'Contundente' ? '🍲' : f.tapa === 'Simple' ? '🫒' : ''}</span>
-                          <span className="font-black text-[#8B0000] text-xs">{f.precio.toFixed(2)}€</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); abrirEnMapasExternos(barSeleccionado.latitud, barSeleccionado.longitud); }} className="w-full mt-3 bg-blue-50 text-blue-600 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1">🚗 Cómo llegar</button>
-                </div>
-              </Overlay>
-            )}
-          </Map>
-        )}
-        <div className="absolute top-5 left-4 bg-white/80 backdrop-blur-md px-4 py-2 rounded-full shadow-sm border border-white/50 z-10 flex items-center gap-2 pointer-events-none">
-          <Image src="/logobirradar.png" alt="Logo" width={24} height={24} className="object-contain" />
-          <h1 className="font-black text-lg tracking-tight text-[#8B0000] italic">Birradar</h1>
-        </div>
-<div className="absolute top-5 right-4 z-10 flex flex-col gap-2 items-end">
+        <header className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <span className="flex items-center gap-2 rounded-full bg-white py-1.5 pl-1.5 pr-4 shadow-md">
+            <Image src="/logobirradar.png" alt="" width={30} height={30} className="rounded-full" />
+            <span className="text-xl font-extrabold tracking-[-0.04em] text-granate">Birradar</span>
+          </span>
           {usuario ? (
-            <button onClick={(e) => { e.stopPropagation(); setVistaPerfil('yo'); setMenuPerfilAbierto(true); }} className="bg-white/90 backdrop-blur-md p-1 rounded-full shadow-sm border border-white/50 cursor-pointer relative hover:scale-105 transition-transform">
-              <img src={usuario.user_metadata.avatar_url} className="w-10 h-10 rounded-full" />
-              <span className="absolute -bottom-1 -right-1 bg-[#8B0000] text-white font-black text-[9px] rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">{perfil?.nivel || 1}</span>
-            </button>
-          ) : <button onClick={iniciarSesionConGoogle} className="bg-white/90 px-4 py-2 rounded-full shadow-sm border border-white/50 font-bold text-xs">👤 Entrar</button>}
-          
-          <button onClick={obtenerUbicacion} className="bg-white/90 backdrop-blur-md w-12 h-12 flex items-center justify-center rounded-full shadow-sm border border-white/50 text-lg text-blue-600 active:scale-95 transition-all">📍</button>
-
-          {/* --- BOTONES DE ZOOM (AHORA SÍ, BIEN COLOCADOS) --- */}
-          <div className="flex flex-col bg-white/90 backdrop-blur-md rounded-[1rem] shadow-sm border border-white/50 overflow-hidden mt-1">
-            <button 
-              onClick={() => setZoom(Math.min(zoom + 1, 18))} 
-              className="w-12 h-11 flex items-center justify-center text-2xl font-light text-gray-700 hover:bg-gray-100 border-b border-gray-200 active:bg-gray-200 transition-colors"
+            <button
+              onClick={() => setPerfilAbierto(true)}
+              className="pointer-events-auto relative rounded-full bg-white p-1 shadow-md"
+              aria-label="Abrir mi perfil"
             >
-              +
+              {perfil?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={perfil.avatar} alt="" referrerPolicy="no-referrer" className="h-10 w-10 rounded-full object-cover" />
+              ) : (
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-ambar font-extrabold">{(perfil?.nombre ?? "T").slice(0, 1)}</span>
+              )}
+              <span className="absolute -bottom-1 -right-1 grid h-6 min-w-6 place-items-center rounded-full bg-granate px-1 text-[11px] font-extrabold text-white ring-2 ring-white">
+                {nivelDeXp(perfil?.xp ?? 0)}
+              </span>
             </button>
-            <button 
-              onClick={() => setZoom(Math.max(zoom - 1, 5))} 
-              className="w-12 h-11 flex items-center justify-center text-3xl font-light text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition-colors"
-            >
-              -
+          ) : (
+            <button onClick={entrar} className="pointer-events-auto rounded-full bg-white px-4 py-2.5 text-sm font-bold shadow-md">
+              Entrar
             </button>
-          </div>
+          )}
+        </header>
+
+        <button
+          onClick={centrarEnMi}
+          aria-label="Centrar el mapa en mi ubicación"
+          className="absolute bottom-10 right-4 grid h-12 w-12 place-items-center rounded-full bg-white shadow-md active:scale-95"
+        >
+          <svg viewBox="0 0 24 24" className="h-6 w-6 text-blue-700" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          </svg>
+        </button>
+      </section>
+
+      {/* Hoja inferior con la lista o la ficha del bar */}
+      <section className="relative z-10 -mt-6 flex min-h-0 flex-1 flex-col rounded-t-[28px] bg-white shadow-[0_-10px_30px_-12px_rgba(27,26,24,0.35)]">
+        <button
+          onClick={() => setHojaAlta((a) => !a)}
+          aria-label={hojaAlta ? "Ver más mapa" : "Ver más lista"}
+          className="mx-auto flex h-7 w-24 shrink-0 items-center justify-center"
+        >
+          <span className="h-1.5 w-12 rounded-full bg-tinta/15" />
+        </button>
+        <div className="min-h-0 flex-1 overflow-y-auto pb-28">
+          {seleccionado ? (
+            <FichaBar
+              bar={seleccionado}
+              puedeActualizar={puedeActualizar || !usuario}
+              onActualizar={actualizarSeleccionado}
+              onCerrar={() => setSeleccionadoId(null)}
+            />
+          ) : (
+            <ListaBares
+              bares={visibles}
+              orden={orden}
+              onOrden={setOrden}
+              marcasTop={marcasOrdenadas.slice(0, 6)}
+              filtroMarca={filtroMarca}
+              onFiltroMarca={setFiltroMarca}
+              busqueda={busqueda}
+              onBusqueda={setBusqueda}
+              onElegirBar={elegirBar}
+              hayUbicacion={!!miUbicacion}
+              onAnadir={anadirPrecio}
+            />
+          )}
         </div>
-      </div>
+      </section>
 
-      {/* --- LISTA DE BARES --- */}
-      <div className="h-[55%] bg-[#F9FAFB] relative z-20 -mt-6 rounded-t-3xl shadow-[0_-8px_20px_-5px_rgba(0,0,0,0.1)] p-5 overflow-y-auto pb-24">
-        <div className="w-10 h-1.5 bg-gray-200 rounded-full mx-auto mb-4"></div>
-        <div className="flex gap-2 mb-4">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 text-sm pointer-events-none">🔍</span>
-            <input type="text" placeholder="Buscar un bar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-full bg-white border border-gray-100 rounded-full py-2.5 pl-9 pr-4 text-xs font-medium outline-none focus:ring-2 focus:ring-[#8B0000] shadow-sm transition-all" />
-          </div>
-          <button onClick={() => setMostrarFiltros(!mostrarFiltros)} className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 transition-colors border ${mostrarFiltros ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border-gray-100'}`}>⚙️ Filtros</button>
-        </div>
+      {!seleccionado && (
+        <button
+          onClick={anadirPrecio}
+          className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-granate py-2 pl-2 pr-6 text-[17px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(139,0,0,0.7)] active:scale-95"
+        >
+          <span className="posavasos h-10 w-10 text-xl">
+            <span className="relative z-10 -mt-0.5">+</span>
+          </span>
+          {usuario ? "Añadir precio" : "Entra para añadir precios"}
+        </button>
+      )}
 
-        {mostrarFiltros && (
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-5 grid grid-cols-3 gap-3 text-[11px] animate-in fade-in slide-in-from-top-2 duration-200">
-            <div>
-              <label className="font-bold text-[9px] text-gray-500 uppercase mb-1 block">Marca</label>
-              <select value={filtroMarca} onChange={(e) => setFiltroMarca(e.target.value)} className="w-full bg-gray-50 rounded-lg p-2 font-medium outline-none border-none ring-1 ring-gray-100">
-                <option value="">Todas</option>
-                {marcasCerveza.map(m => <option key={m} value={m}>{m.replace(/[^a-zA-Z. /ñáó]/g, "")}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="font-bold text-[9px] text-gray-500 uppercase mb-1 block">Tapa</label>
-              <select value={filtroTapa} onChange={(e) => setFiltroTapa(e.target.value)} className="w-full bg-gray-50 rounded-lg p-2 font-medium outline-none border-none ring-1 ring-gray-100">
-                <option value="">Todas</option>
-                <option value="No">No</option><option value="Simple">Simple</option><option value="Contundente">Top</option>
-              </select>
-            </div>
-            <div>
-              <label className="font-bold text-[9px] text-gray-500 uppercase mb-1 block">Máx: {filtroPrecioMax.toFixed(2)}€</label>
-              <input type="range" min="1.00" max="6.00" step="0.20" value={filtroPrecioMax} onChange={(e) => setFiltroPrecioMax(parseFloat(e.target.value))} className="w-full accent-[#8B0000] mt-2" />
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3">
-          {rankingProcesado.map((bar, index) => (
-            <button key={bar.id} onClick={() => irAlBar(bar)} className={`w-full bg-white p-4 rounded-2xl shadow-sm flex items-center justify-between transition-all text-left ${barSeleccionado?.id === bar.id ? 'ring-2 ring-[#D4AF37] bg-amber-50/50' : 'border border-gray-100'}`}>
-              <div className="flex items-center gap-4 overflow-hidden">
-                <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-lg flex-shrink-0 border border-gray-100 relative">
-                  {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "📍"}
-                  <span className="absolute -bottom-1 -right-2 bg-gray-800 text-white text-[8px] font-black px-1.5 rounded-full">{bar.numResenas}</span>
-                </div>
-                <div className="truncate pr-2">
-                  <h3 className="font-bold text-gray-900 capitalize truncate text-base">{bar.nombre}</h3>
-                  <p className="text-xs text-gray-500 truncate mt-0.5">
-                    <span className="truncate">{bar.marca_calculada.split(" ")[0]} {bar.formatos.map((f: any) => f.formato).join(", ")}</span>
-                    <span className="text-blue-600 font-bold ml-1.5">{bar.distanciaKm < 1 ? `${Math.round(bar.distanciaKm * 1000)}m` : `${bar.distanciaKm.toFixed(1)}km`}</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end flex-shrink-0">
-                <span className="font-black text-[#8B0000] text-lg"><span className="text-[9px] text-gray-400 uppercase mr-0.5">Desde</span>{bar.precio_calculado.toFixed(2)}€</span>
-                {bar.tapa_calculada === 'Contundente' && <span className="text-[9px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full mt-1">Tapa Top</span>}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* --- BOTÓN FLOTANTE --- */}
-      <button onClick={iniciarCreacionResena} className={`absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white font-black py-3.5 px-8 rounded-full shadow-xl shadow-red-900/20 text-base z-30 transition-transform active:scale-95 ${usuario ? 'bg-[#8B0000]' : 'bg-gray-800'}`}>
-        {usuario ? "🍺 Añadir Bar" : "🔒 Entra para Reseñar"}
-      </button>
-
-      {/* --- MENÚ PERFIL & RANKING --- */}
-      {menuPerfilAbierto && usuario && (
-        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 shadow-2xl text-center animate-in slide-in-from-bottom-8">
-            <button onClick={() => setMenuPerfilAbierto(false)} className="absolute top-5 right-5 bg-gray-100 text-gray-500 rounded-full w-8 h-8 font-bold flex items-center justify-center">✕</button>
-            <div className="flex bg-gray-100 p-1 rounded-2xl mb-6 mt-4">
-              <button onClick={() => setVistaPerfil('yo')} className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${vistaPerfil === 'yo' ? 'bg-white shadow-sm text-[#8B0000]' : 'text-gray-500'}`}>Mi Perfil</button>
-              <button onClick={() => setVistaPerfil('ranking')} className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${vistaPerfil === 'ranking' ? 'bg-white shadow-sm text-[#8B0000]' : 'text-gray-500'}`}>🏆 Top 10</button>
-            </div>
-
-            {vistaPerfil === 'yo' ? (
-              <div className="animate-in fade-in duration-300">
-                <div className="relative inline-block mb-4">
-                  <img src={usuario.user_metadata.avatar_url} className="w-24 h-24 mx-auto rounded-full border-4 border-white shadow-lg" />
-                  <span className="absolute bottom-0 right-0 bg-[#D4AF37] text-white font-black text-sm rounded-full w-8 h-8 flex items-center justify-center border-2 border-white shadow-sm">{perfil?.nivel || 1}</span>
-                </div>
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight">{usuario.user_metadata.full_name}</h2>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">{obtenerTituloGamificacion(perfil?.nivel || 1)}</p>
-
-                <div className="mt-6 bg-amber-50 p-5 rounded-2xl border border-amber-100/50">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold text-amber-900 text-[10px] uppercase">Progreso Nivel {perfil?.nivel || 1}</span>
-                    <span className="text-[10px] text-amber-700 font-bold">{xpActualNivel} / {xpParaSiguienteNivel} XP</span>
-                  </div>
-                  <div className="w-full bg-amber-200/50 h-2 rounded-full overflow-hidden">
-                    <div className="bg-[#D4AF37] h-full transition-all duration-700" style={{ width: `${porcentajeProgreso}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <span className="text-2xl block mb-1">🍺</span>
-                    <p className="font-black text-gray-900 text-xl">{baresDescubiertos}</p>
-                    <p className="text-[9px] font-bold text-gray-400 uppercase">Descubiertos</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <span className="text-2xl block mb-1">🏆</span>
-                    <p className="font-black text-[#D4AF37] text-xl">{perfil?.xp || 0}</p>
-                    <p className="text-[9px] font-bold text-gray-400 uppercase">Puntos XP</p>
-                  </div>
-                </div>
-
-                {/* --- BOTONES DE ACCIÓN (Compartir & Salir) --- */}
-                <div className="mt-6 space-y-3">
-                  <button onClick={compartirApp} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-900/10 flex items-center justify-center gap-2 text-sm active:scale-[0.98] transition-all">
-                    <span>📲</span> Compartir Birradar
-                  </button>
-                  <button onClick={cerrarSesion} className="w-full text-red-500 font-bold py-2 text-xs hover:text-red-600">Cerrar sesión</button>
-                </div>
-              </div>
-            ) : (
-              <div className="animate-in fade-in slide-in-from-right-4 max-h-[400px] overflow-y-auto space-y-3 text-left pr-2">
-                {rankingUsuarios.map((u, i) => (
-                  <div key={u.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-100">
-                    <div className={`font-black w-6 text-center text-lg ${i === 0 ? 'text-[#D4AF37]' : i === 1 ? 'text-gray-400' : 'text-amber-700'}`}>{i < 3 ? ['🥇','🥈','🥉'][i] : i + 1}</div>
-                    <div className="relative"><img src={u.avatar_url} className="w-10 h-10 rounded-full" /><span className="absolute -bottom-1 -right-1 bg-gray-800 text-white font-black text-[8px] rounded-full w-4 h-4 flex items-center justify-center">{u.nivel}</span></div>
-                    <div className="flex-1 truncate"><h4 className="font-black text-gray-900 text-sm truncate">{u.nombre}</h4><p className="text-[8px] text-gray-400 font-bold uppercase">{obtenerTituloGamificacion(u.nivel)}</p></div>
-                    <div className="font-black text-[#8B0000] text-sm bg-red-50 px-2 py-1 rounded-lg border border-red-100">{u.xp} XP</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {aviso && (
+        <div role="status" className="entra absolute left-1/2 top-[max(5rem,calc(env(safe-area-inset-top)+4rem))] z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl bg-tinta px-4 py-3 text-center text-[15px] font-semibold text-white shadow-xl">
+          {aviso}
         </div>
       )}
 
-      {/* --- FORMULARIO DE RESEÑA --- */}
-      {abrirResena && (
-        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex flex-col justify-end animate-in fade-in">
-          <div className="bg-white rounded-t-[2.5rem] p-6 h-[90%] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom-8">
-            <div className="flex justify-between items-center mb-6">
-              <div><h2 className="text-2xl font-black text-gray-900 tracking-tight">{modoAuditoria ? 'Auditoría' : 'Nuevo Bar'}</h2>{modoAuditoria && <p className="text-[10px] font-black text-amber-600 uppercase mt-1">Gana +5 XP auditando</p>}</div>
-              <button onClick={() => setAbrirResena(false)} className="bg-gray-100 text-gray-500 rounded-full w-8 h-8 font-bold">✕</button>
-            </div>
-            <div className="space-y-6">
-              <div><label className="font-bold text-gray-400 uppercase text-[10px] mb-1.5 block">Nombre del Local</label><input type="text" placeholder="Ej: Bar Fide..." value={nombreBar} onChange={(e) => setNombreBar(e.target.value)} disabled={!!modoAuditoria} className={`w-full border-none ring-1 rounded-xl p-3.5 font-bold outline-none ${modoAuditoria ? 'bg-amber-50 ring-amber-200 text-amber-900' : 'bg-gray-50 ring-gray-200 focus:ring-2 focus:ring-[#8B0000]'}`} /></div>
-              <div><label className="font-bold text-gray-400 uppercase text-[10px] mb-2 block">Cerveza</label><div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto p-1 bg-gray-50 rounded-xl border border-gray-100 shadow-inner">
-                {marcasCerveza.map((m) => (
-                  <button key={m} onClick={() => setMarca(m)} className={`py-2.5 px-3 border rounded-xl text-left text-xs font-bold transition-all truncate flex items-center justify-between ${marca === m ? 'bg-[#8B0000] text-white border-[#8B0000] shadow-md' : 'text-gray-700 bg-white border-gray-200'}`}><span>{m}</span>{marca === m && <span>✓</span>}</button>
-                ))}
-              </div></div>
-              <div><label className="font-bold text-gray-400 uppercase text-[10px] mb-1.5 block">Tamaño</label><div className="grid grid-cols-3 gap-2">{['Caña', 'Doble', 'Tercio'].map((f) => (<button key={f} onClick={() => setFormato(f)} className={`py-3 border rounded-xl font-bold text-xs ${formato === f ? 'bg-gray-900 text-white shadow-md' : 'text-gray-600 bg-white border-gray-200'}`}>{f}</button>))}</div></div>
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><label className="font-bold text-gray-400 uppercase text-[10px] flex justify-between items-center mb-3">Precio <span className="text-[#8B0000] text-lg font-black">{precio.toFixed(2)}€</span></label><input type="range" min="1.00" max="6.00" step="0.10" value={precio} onChange={(e) => setPrecio(parseFloat(e.target.value))} className="w-full accent-[#8B0000] py-2"/></div>
-              <div><label className="font-bold text-gray-400 uppercase text-[10px] mb-1.5 block">¿Tapa?</label><div className="grid grid-cols-3 gap-2">
-                {['No', 'Simple', 'Contundente'].map(t => (<button key={t} onClick={() => setTapa(t)} className={`py-4 border rounded-xl text-2xl flex flex-col items-center gap-1 transition-all ${tapa === t ? 'bg-amber-50 border-amber-200 ring-1 ring-amber-200' : 'bg-white border-gray-200'}`}><span>{t==='No'?'❌':t==='Simple'?'🫒':'🍲'}</span><span className="text-[8px] font-bold text-gray-400 uppercase">{t}</span></button>))}
-              </div></div>
-              <button onClick={enviarDatos} className="w-full bg-gradient-to-r from-[#8B0000] to-[#6b0000] text-white font-black py-4 rounded-2xl shadow-lg disabled:opacity-50 text-base" disabled={!nombreBar || !marca || !formato || !tapa || cargando}>{cargando ? 'Enviando...' : (modoAuditoria ? '✅ Añadir a la Carta' : '🚀 Subir Nuevo Bar')}</button>
-            </div>
-          </div>
-        </div>
+      {formulario && (
+        <FormularioPrecio
+          key={formulario.bar?.id ?? "nuevo"}
+          bar={formulario.bar}
+          marcasOrdenadas={marcasOrdenadas}
+          enviando={enviando}
+          onEnviar={enviar}
+          onEsOtroBar={() => setFormulario({ bar: null, ubicacion: formulario.ubicacion })}
+          onCerrar={() => setFormulario(null)}
+        />
+      )}
+
+      {perfilAbierto && usuario && perfil && (
+        <Perfil
+          nombre={perfil.nombre}
+          avatar={perfil.avatar}
+          xp={perfil.xp}
+          descubiertos={descubiertos}
+          ranking={ranking}
+          miId={usuario.id}
+          onCompartir={compartirApp}
+          onSalir={async () => {
+            await supabase.auth.signOut();
+            setPerfilAbierto(false);
+          }}
+          onCerrar={() => setPerfilAbierto(false)}
+        />
+      )}
+
+      {bienvenida && (
+        <Bienvenida
+          onTerminar={() => {
+            guardar("tutorialVisto");
+            setBienvenida(false);
+          }}
+        />
       )}
     </main>
   );
