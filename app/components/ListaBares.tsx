@@ -121,6 +121,10 @@ export default function ListaBares(p: Props) {
         })}
       </ul>
 
+      <a href="/canas-baratas" className="mx-5 mt-4 block rounded-2xl bg-zinc-barra px-4 py-3 text-center text-sm font-bold text-tinta/70">
+        Ver el ranking de cañas más baratas
+      </a>
+
       {p.bares.length === 0 && (
         <div className="mx-5 mt-4 rounded-3xl bg-zinc-barra p-6 text-center">
           <p className="text-lg font-bold">No hay bares con estos filtros</p>

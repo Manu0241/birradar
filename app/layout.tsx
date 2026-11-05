@@ -15,9 +15,25 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const descripcion =
+  "Mira cuánto cuesta la caña en los bares de tu zona antes de sentarte. Precios de caña, doble y tercio, con tapa o sin ella, puestos por la gente.";
+
 export const metadata: Metadata = {
-  title: "Birradar · Cañas baratas cerca de ti",
-  description: "Mira lo que cuesta la caña en los bares de tu zona y comparte los precios.",
+  metadataBase: new URL("https://birradar.vercel.app"),
+  title: "Birradar: cañas baratas cerca de ti, precios bar a bar",
+  description: descripcion,
+  applicationName: "Birradar",
+  keywords: ["cañas baratas", "precio caña", "cañas baratas Madrid", "bares baratos", "tapas gratis", "precio cerveza bar"],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    siteName: "Birradar",
+    title: "¿Cuánto cuesta la caña aquí? Birradar",
+    description: descripcion,
+    url: "/",
+  },
+  twitter: { card: "summary_large_image", title: "Birradar: cañas baratas cerca de ti", description: descripcion },
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Birradar" },
 };

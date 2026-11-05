@@ -1,5 +1,6 @@
 import type { Bar } from "./bares";
 import { euros } from "./bares";
+import { urlBar } from "./datos";
 
 const GRANATE = "#8B0000";
 const AMBAR = "#F4A81D";
@@ -111,7 +112,7 @@ export async function crearTarjeta(bar: Bar): Promise<Blob | null> {
 export async function compartirTarjeta(bar: Bar) {
   const blob = await crearTarjeta(bar);
   const texto = `${bar.nombre}: ${euros(bar.precioDesde)} € la caña. Míralo en Birradar`;
-  const url = `https://${URL_APP}/`;
+  const url = urlBar(bar);
   if (blob) {
     const archivo = new File([blob], `birradar-${bar.nombre.toLowerCase().replace(/\W+/g, "-")}.png`, { type: "image/png" });
     if (navigator.canShare?.({ files: [archivo] })) {

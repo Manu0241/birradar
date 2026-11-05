@@ -133,9 +133,13 @@ export default function Home() {
       if (!leer("tutorialVisto")) setBienvenida(true);
     }, yaVisto ? 0 : 1500);
 
+    // Enlace directo a un bar: /?bar=<id> (desde las páginas de cada bar)
+    const barEnlace = new URLSearchParams(window.location.search).get("bar");
+    if (barEnlace) setSeleccionadoId(barEnlace);
+
     cargarBares();
     cargarRanking();
-    ubicar().then((c) => c && setCentro(c));
+    ubicar().then((c) => c && !barEnlace && setCentro(c));
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUsuario(session?.user ?? null);
@@ -168,6 +172,17 @@ export default function Home() {
         if (data) setPerfilesReyes(Object.fromEntries(data.map((d) => [d.id, { nombre: d.nombre ?? "Alguien", avatar_url: d.avatar_url ?? "" }])));
       });
   }, [bares]);
+
+  // Si se abrió con /?bar=<id>, centrar el mapa en ese bar cuando lleguen los datos
+  const centradoEnEnlace = useRef(false);
+  useEffect(() => {
+    if (centradoEnEnlace.current || !seleccionadoId) return;
+    const b = bares.find((x) => x.id === seleccionadoId);
+    if (b) {
+      centradoEnEnlace.current = true;
+      setCentro([b.latitud, b.longitud]);
+    }
+  }, [bares, seleccionadoId]);
 
   const marcasOrdenadas = useMemo(() => {
     const ref = miUbicacion ?? CENTRO_INICIAL;
