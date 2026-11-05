@@ -12,6 +12,8 @@ import FichaBar, { type Rey } from "./components/FichaBar";
 import FormularioPrecio, { type DatosPrecio } from "./components/FormularioPrecio";
 import Perfil, { type FilaRanking } from "./components/Perfil";
 import Bienvenida from "./components/Bienvenida";
+import GuiaInstalarIOS from "./components/GuiaInstalarIOS";
+import { useInstalacion } from "@/lib/instalar";
 
 const CENTRO_INICIAL: Coordenadas = [40.489, -3.667];
 const RADIO_MISMO_BAR_KM = 0.05; // a menos de 50 m damos por hecho que estás en ese bar
@@ -57,17 +59,26 @@ export default function Home() {
   const temporizadorAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hojaRef = useRef<HTMLDivElement>(null);
 
-  // Instalación como app (Android/Chrome): guardamos el aviso del navegador para lanzarlo desde el tutorial
-  type AvisoInstalacion = Event & { prompt: () => Promise<void> };
-  const [avisoInstalar, setAvisoInstalar] = useState<AvisoInstalacion | null>(null);
+  // Instalar como app: Android lanza el aviso del navegador; iPhone enseña dónde tocar
+  const instalacion = useInstalacion();
+  const [guiaIOS, setGuiaIOS] = useState(false);
+  const instalar = instalacion.disponible
+    ? () => (instalacion.ios ? setGuiaIOS(true) : instalacion.instalarNativo())
+    : null;
+
+  // Aviso discreto a partir de la tercera visita, si aún no la tiene instalada
+  const [avisoVisitas, setAvisoVisitas] = useState(false);
   useEffect(() => {
-    const guardarAviso = (e: Event) => {
-      e.preventDefault();
-      setAvisoInstalar(e as AvisoInstalacion);
-    };
-    window.addEventListener("beforeinstallprompt", guardarAviso);
-    return () => window.removeEventListener("beforeinstallprompt", guardarAviso);
+    try {
+      const n = Number(localStorage.getItem("visitas") ?? "0") + 1;
+      localStorage.setItem("visitas", String(n));
+      if (n >= 3 && !localStorage.getItem("avisoInstalarCerrado")) setAvisoVisitas(true);
+    } catch {}
   }, []);
+  const cerrarAvisoVisitas = () => {
+    setAvisoVisitas(false);
+    try { localStorage.setItem("avisoInstalarCerrado", "1"); } catch {}
+  };
 
   // Al cambiar entre lista y ficha, volver arriba de la hoja
   useEffect(() => {
@@ -457,6 +468,28 @@ export default function Home() {
         </div>
       )}
 
+      {avisoVisitas && instalar && !bienvenida && splash === "fuera" && !formulario && (
+        <div className="entra absolute inset-x-4 top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] z-[55] flex items-center gap-3 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-tinta/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icono-192.png" alt="" className="h-11 w-11 rounded-xl" />
+          <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug">Ten Birradar en tu pantalla de inicio, como una app.</p>
+          <button
+            onClick={() => {
+              instalar();
+              cerrarAvisoVisitas();
+            }}
+            className="shrink-0 rounded-full bg-granate px-4 py-2 text-sm font-bold text-white"
+          >
+            {instalacion.ios ? "Cómo" : "Instalar"}
+          </button>
+          <button onClick={cerrarAvisoVisitas} aria-label="Cerrar aviso" className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-tinta/50">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {guiaIOS && <GuiaInstalarIOS arriba={instalacion.compartirArriba} onCerrar={() => setGuiaIOS(false)} />}
+
       {formulario && (
         <FormularioPrecio
           key={formulario.bar?.id ?? "nuevo"}
@@ -481,6 +514,7 @@ export default function Home() {
           rankingSemanal={rankingSemanal}
           miId={usuario.id}
           onCompartir={compartirApp}
+          onInstalar={instalar}
           onSalir={async () => {
             await supabase.auth.signOut();
             setPerfilAbierto(false);
@@ -491,14 +525,8 @@ export default function Home() {
 
       {bienvenida && (
         <Bienvenida
-          onInstalar={
-            avisoInstalar
-              ? () => {
-                  avisoInstalar.prompt().catch(() => {});
-                  setAvisoInstalar(null);
-                }
-              : null
-          }
+          instalacion={instalacion}
+          onGuiaIOS={() => setGuiaIOS(true)}
           onTerminar={() => {
             guardar("tutorialVisto2");
             setBienvenida(false);

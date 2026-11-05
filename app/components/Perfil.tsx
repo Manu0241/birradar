@@ -15,6 +15,7 @@ type Props = {
   rankingSemanal: FilaRanking[];
   miId: string;
   onCompartir: () => void;
+  onInstalar: (() => void) | null; // null = ya instalada o no se puede desde este navegador
   onSalir: () => void;
   onCerrar: () => void;
 };
@@ -121,6 +122,11 @@ export default function Perfil(p: Props) {
             <button onClick={p.onCompartir} className="mt-5 w-full rounded-2xl bg-tinta py-4 text-[16px] font-bold text-white">
               Invitar a un amigo
             </button>
+            {p.onInstalar && (
+              <button onClick={p.onInstalar} className="mt-2 w-full rounded-2xl bg-white py-4 text-[16px] font-bold ring-1 ring-tinta/10">
+                Añadir a la pantalla de inicio
+              </button>
+            )}
             <button onClick={p.onSalir} className="mt-2 w-full py-2 text-sm font-semibold text-tinta/50">
               Cerrar sesión
             </button>

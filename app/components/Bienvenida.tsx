@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { Instalacion } from "@/lib/instalar";
 
 const PASOS = [
   { icono: "🍺", titulo: "¿Cuánto cuesta la caña aquí?", texto: "Birradar te enseña el precio de la caña en los bares de tu zona antes de sentarte." },
@@ -11,19 +12,14 @@ const PASOS = [
 
 type Props = {
   onTerminar: () => void;
-  onInstalar: (() => void) | null; // Android/Chrome: abre el diálogo de instalación
+  instalacion: Instalacion;
+  onGuiaIOS: () => void; // iPhone: enseña la flecha hacia el botón Compartir
 };
 
-export default function Bienvenida({ onTerminar, onInstalar }: Props) {
+export default function Bienvenida({ onTerminar, instalacion, onGuiaIOS }: Props) {
   const [paso, setPaso] = useState(0);
-  const [entorno, setEntorno] = useState<{ ios: boolean; instalada: boolean }>({ ios: false, instalada: false });
-
-  useEffect(() => {
-    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    const instalada =
-      window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    setEntorno({ ios, instalada });
-  }, []);
+  const entorno = instalacion;
+  const onInstalar = instalacion.nativo ? instalacion.instalarNativo : null;
 
   // Último paso: tenerla en la pantalla de inicio (no se muestra si ya está instalada)
   const pasos = entorno.instalada
@@ -34,7 +30,7 @@ export default function Bienvenida({ onTerminar, onInstalar }: Props) {
           icono: "📲",
           titulo: "Tenla en tu pantalla de inicio",
           texto: entorno.ios
-            ? "En Safari, pulsa el botón Compartir (el cuadrado con la flecha hacia arriba) y luego «Añadir a pantalla de inicio»."
+            ? "Así la abres como una app más, sin buscarla en el navegador. Te enseñamos dónde tocar."
             : onInstalar
               ? "Pulsa «Instalar» y tendrás Birradar como una app más, sin descargar nada de la tienda."
               : "En el menú del navegador (⋮), pulsa «Instalar aplicación» o «Añadir a pantalla de inicio».",
@@ -42,7 +38,7 @@ export default function Bienvenida({ onTerminar, onInstalar }: Props) {
       ];
   const p = pasos[Math.min(paso, pasos.length - 1)];
   const ultimo = paso >= pasos.length - 1;
-  const puedeInstalar = ultimo && !entorno.instalada && !entorno.ios && !!onInstalar;
+  const puedeInstalar = ultimo && !entorno.instalada && (entorno.ios || !!onInstalar);
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-tinta/60 p-4 backdrop-blur-sm sm:items-center">
@@ -73,12 +69,15 @@ export default function Bienvenida({ onTerminar, onInstalar }: Props) {
             <button
               onClick={() => {
                 if (!ultimo) return setPaso(paso + 1);
-                if (puedeInstalar) onInstalar?.();
+                if (puedeInstalar) {
+                  if (entorno.ios) onGuiaIOS();
+                  else onInstalar?.();
+                }
                 onTerminar();
               }}
               className="rounded-full bg-granate px-6 py-3 text-[15px] font-bold text-white"
             >
-              {!ultimo ? "Siguiente" : puedeInstalar ? "Instalar" : "Empezar"}
+              {!ultimo ? "Siguiente" : puedeInstalar ? (entorno.ios ? "Enséñame" : "Instalar") : "Empezar"}
             </button>
           </div>
         </div>
