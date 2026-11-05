@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { ImagenSocial, TAM_SOCIAL } from "@/lib/imagenSocial";
+import { ImagenSocial, TAM_SOCIAL, fuentesSocial } from "@/lib/imagenSocial";
 import { nombreBonito, obtenerBarPorSlug } from "@/lib/datos";
 import { euros } from "@/lib/bares";
 
@@ -22,6 +22,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     ) : (
       <ImagenSocial precio="?" titulo="Bar no encontrado" subtitulo="Busca otros bares en Birradar." />
     ),
-    size
+    { ...size, fonts: await fuentesSocial() }
   );
 }
