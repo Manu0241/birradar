@@ -1,6 +1,6 @@
 "use client";
-import type { Bar } from "@/lib/bares";
-import { euros, haceCuanto, textoDistancia } from "@/lib/bares";
+import type { Bar, Coordenadas } from "@/lib/bares";
+import { euros, haceCuanto, textoDistancia, urlComoLlegar } from "@/lib/bares";
 import { infoMarca } from "@/lib/marcas";
 import { iconoTapa } from "./ListaBares";
 
@@ -8,6 +8,7 @@ export type Rey = { nombre: string; avatar: string; aportaciones: number; soyYo:
 
 type Props = {
   bar: Bar;
+  origen: Coordenadas | null; // dónde está la persona, para la ruta de «Cómo llegar»
   rey: Rey | null;
   puedeActualizar: boolean;
   onActualizar: () => void;
@@ -15,7 +16,7 @@ type Props = {
   onCerrar: () => void;
 };
 
-export default function FichaBar({ bar, rey, puedeActualizar, onActualizar, onCompartir, onCerrar }: Props) {
+export default function FichaBar({ bar, origen, rey, puedeActualizar, onActualizar, onCompartir, onCerrar }: Props) {
 
   return (
     <div className="entra px-5">
@@ -96,7 +97,7 @@ export default function FichaBar({ bar, rey, puedeActualizar, onActualizar, onCo
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <a
-          href={`https://www.google.com/maps/dir/?api=1&destination=${bar.latitud},${bar.longitud}`}
+          href={urlComoLlegar(bar.latitud, bar.longitud, origen)}
           target="_blank"
           rel="noreferrer"
           className="rounded-2xl bg-white py-3.5 text-center text-[15px] font-bold ring-1 ring-tinta/10"

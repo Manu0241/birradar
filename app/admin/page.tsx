@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { euros, fechaMs, haceCuanto } from "@/lib/bares";
+import { euros, fechaMs, haceCuanto, urlVerEnMapa } from "@/lib/bares";
 import { infoMarca } from "@/lib/marcas";
 
 type ResenaPanel = {
@@ -274,7 +274,7 @@ export default function Panel() {
                         {b.resenas.length ? `, último ${haceCuanto([...b.resenas].sort((x, y) => y.fecha.localeCompare(x.fecha))[0].fecha)}` : ""}
                       </p>
                       <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${b.latitud},${b.longitud}`}
+                        href={urlVerEnMapa(b.latitud, b.longitud)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[12px] font-semibold text-blue-700 underline underline-offset-2"

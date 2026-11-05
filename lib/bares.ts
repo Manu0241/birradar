@@ -141,6 +141,18 @@ export function procesarBares(datos: BarDB[], desde: Coordenadas | null): Bar[] 
   return bares;
 }
 
+/**
+ * Enlace de Google Maps con ruta andando hasta el bar.
+ * Si sabemos dónde está la persona (GPS de la app), se lo pasamos como origen: sin él,
+ * Google usa su ubicación aproximada por IP, que en ordenadores o con VPN puede estar en otro país.
+ */
+export const urlComoLlegar = (lat: number, lng: number, origen?: Coordenadas | null) =>
+  `https://www.google.com/maps/dir/?api=1${origen ? `&origin=${origen[0].toFixed(6)}%2C${origen[1].toFixed(6)}` : ""}&destination=${lat.toFixed(6)}%2C${lng.toFixed(6)}&travelmode=walking`;
+
+/** Enlace de Google Maps que solo marca el punto. */
+export const urlVerEnMapa = (lat: number, lng: number) =>
+  `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)}%2C${lng.toFixed(6)}`;
+
 export const euros = (n: number) =>
   n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

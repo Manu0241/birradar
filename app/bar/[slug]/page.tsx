@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { distanciaKm, euros, haceCuanto, textoDistancia } from "@/lib/bares";
+import { distanciaKm, euros, haceCuanto, textoDistancia, urlComoLlegar } from "@/lib/bares";
 import { infoMarca } from "@/lib/marcas";
 import { nombreBonito, obtenerBarPorSlug, slugBar, urlBar } from "@/lib/datos";
 
@@ -91,7 +91,7 @@ export default async function PaginaBar({ params }: Props) {
           Ver en el mapa y actualizar precio
         </Link>
         <a
-          href={`https://www.google.com/maps/dir/?api=1&destination=${bar.latitud},${bar.longitud}`}
+          href={urlComoLlegar(bar.latitud, bar.longitud)}
           target="_blank"
           rel="noreferrer"
           className="rounded-2xl bg-zinc-barra py-4 text-center text-[16px] font-bold"

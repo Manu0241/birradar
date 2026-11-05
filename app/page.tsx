@@ -444,6 +444,7 @@ export default function Home() {
           {seleccionado ? (
             <FichaBar
               bar={seleccionado}
+              origen={miUbicacion}
               rey={reySeleccionado}
               onCompartir={compartirBar}
               puedeActualizar={puedeActualizar || !usuario}
