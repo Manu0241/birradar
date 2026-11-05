@@ -105,14 +105,14 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
 
           <fieldset>
             <legend className="mb-2 text-[15px] font-bold">Tamaño</legend>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {FORMATOS.map((f) => (
                 <button
                   key={f}
                   type="button"
                   onClick={() => elegirFormato(f)}
                   aria-pressed={formato === f}
-                  className={`rounded-2xl py-3 text-[15px] font-bold ${formato === f ? "bg-tinta text-white" : "bg-white ring-1 ring-tinta/10"}`}
+                  className={`rounded-2xl px-1 py-3 text-[14px] font-bold ${formato === f ? "bg-tinta text-white" : "bg-white ring-1 ring-tinta/10"}`}
                 >
                   {f}
                 </button>

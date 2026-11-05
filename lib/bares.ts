@@ -48,7 +48,7 @@ export type Bar = {
 
 export const DIAS_PRECIO_VIEJO = 90;
 
-export const FORMATOS = ["Caña", "Doble", "Tercio"] as const;
+export const FORMATOS = ["Caña", "Doble", "Botellín", "Tercio"] as const;
 export const XP_POR_NIVEL = 30;
 
 const ordenFormato = (f: string) => {
