@@ -8,6 +8,7 @@ export type Resena = {
   tapa: string;
   user_id: string | null;
   fecha: string;
+  terraza?: boolean | null;
 };
 
 export type BarDB = {
@@ -41,6 +42,7 @@ export type Bar = {
   numResenas: number;
   ultimaFecha: string;
   chollo: boolean;
+  terraza: boolean | null; // lo último que dijo la gente; null = nadie lo ha dicho
   precioViejo: boolean; // más de 90 días sin actualizar: actualizarlo da el doble de XP
   rey: { userId: string; aportaciones: number } | null; // quien más precios ha aportado aquí
   distanciaKm: number | null;
@@ -122,6 +124,7 @@ export function procesarBares(datos: BarDB[], desde: Coordenadas | null): Bar[] 
         numResenas: resenas.length,
         ultimaFecha,
         chollo: false,
+        terraza: resenas.find((r) => r.terraza === true || r.terraza === false)?.terraza ?? null,
         precioViejo: !!ultimaFecha && Date.now() - fechaMs(ultimaFecha) > DIAS_PRECIO_VIEJO * 86_400_000,
         rey: reyId && reyCuenta >= 2 ? { userId: reyId, aportaciones: reyCuenta } : null,
         distanciaKm: desde ? distanciaKm(desde, [b.latitud, b.longitud]) : null,

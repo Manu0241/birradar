@@ -27,6 +27,11 @@ export default function FichaBar({ bar, rey, puedeActualizar, onActualizar, onCo
             {textoDistancia(bar.distanciaKm) && " de ti, "}
             actualizado {haceCuanto(bar.ultimaFecha)}
           </p>
+          {bar.terraza !== null && (
+            <p className={`mt-2 inline-block rounded-full px-3 py-1 text-[13px] font-bold ${bar.terraza ? "bg-ambar text-tinta" : "bg-zinc-barra text-tinta/60"}`}>
+              {bar.terraza ? "🌞 Tiene terraza" : "Sin terraza"}
+            </p>
+          )}
         </div>
         <button onClick={onCerrar} aria-label="Volver a la lista" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-zinc-barra text-lg font-bold">
           ✕

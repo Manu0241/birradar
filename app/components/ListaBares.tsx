@@ -9,6 +9,8 @@ type Props = {
   bares: Bar[];
   orden: Orden;
   onOrden: (o: Orden) => void;
+  soloTerraza: boolean;
+  onSoloTerraza: () => void;
   marcasTop: Marca[];
   filtroMarca: string | null;
   onFiltroMarca: (m: string | null) => void;
@@ -52,20 +54,29 @@ export default function ListaBares(p: Props) {
       </div>
 
       {/* Orden */}
-      <div className="mt-3 flex gap-2 px-5" role="tablist" aria-label="Ordenar bares">
+      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5" role="tablist" aria-label="Ordenar bares">
         {ORDENES.map((o) => (
           <button
             key={o.id}
             role="tab"
             aria-selected={p.orden === o.id}
             onClick={() => p.onOrden(o.id)}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+            className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-colors ${
               p.orden === o.id ? "bg-tinta text-white" : "bg-white text-tinta/70 ring-1 ring-tinta/10"
             }`}
           >
             {o.texto}
           </button>
         ))}
+        <button
+          onClick={p.onSoloTerraza}
+          aria-pressed={p.soloTerraza}
+          className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+            p.soloTerraza ? "bg-ambar text-tinta" : "bg-white text-tinta/70 ring-1 ring-tinta/10"
+          }`}
+        >
+          🌞 Terraza
+        </button>
       </div>
 
       {/* Marcas populares como filtro rápido */}
@@ -108,6 +119,7 @@ export default function ListaBares(p: Props) {
                     <span className="truncate">
                       {marca.nombre}
                       {iconoTapa(bar.tapa) && <span className="ml-1.5">{iconoTapa(bar.tapa)} tapa</span>}
+                      {bar.terraza && <span className="ml-1.5">🌞 terraza</span>}
                     </span>
                   </span>
                 </span>

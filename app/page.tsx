@@ -44,6 +44,7 @@ export default function Home() {
   const [orden, setOrden] = useState<Orden>("cerca");
   const [filtroMarca, setFiltroMarca] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [soloTerraza, setSoloTerraza] = useState(false);
   const [hojaAlta, setHojaAlta] = useState(false);
 
   const [usuario, setUsuario] = useState<User | null>(null);
@@ -52,6 +53,7 @@ export default function Home() {
   const [rankingSemanal, setRankingSemanal] = useState<FilaRanking[]>([]);
   const [perfilesReyes, setPerfilesReyes] = useState<Record<string, { nombre: string; avatar_url: string }>>({});
   const [perfilAbierto, setPerfilAbierto] = useState(false);
+  const [esAdmin, setEsAdmin] = useState(false);
 
   const [formulario, setFormulario] = useState<{ bar: Bar | null; ubicacion: Coordenadas } | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -95,7 +97,7 @@ export default function Home() {
   const cargarBares = useCallback(async () => {
     const { data, error } = await supabase
       .from("bares")
-      .select("id, nombre, latitud, longitud, resenas ( id, precio, marca, formato, tapa, user_id, fecha )");
+      .select("id, nombre, latitud, longitud, resenas ( id, precio, marca, formato, tapa, user_id, fecha, terraza )");
     if (error) console.error(error);
     else setDatos((data ?? []) as BarDB[]);
   }, []);
@@ -118,6 +120,7 @@ export default function Home() {
       await supabase.from("perfiles").insert({ id: u.id, nombre: meta.full_name ?? "Cazador novato", avatar_url: meta.avatar_url ?? "" });
       ({ data } = await supabase.from("perfiles").select(columnas).eq("id", u.id).maybeSingle());
     }
+    supabase.rpc("es_admin").then(({ data: admin }) => setEsAdmin(admin === true));
     const xp = data?.xp ?? 0;
     setPerfil({
       xp,
@@ -224,10 +227,11 @@ export default function Home() {
       .filter((b) => !filtroMarca || b.precios.some((p) => p.marca === filtroMarca))
       .filter((b) => !texto || b.nombre.toLowerCase().includes(texto))
       .filter((b) => orden !== "tapa" || b.tapa !== "No")
+      .filter((b) => !soloTerraza || b.terraza === true)
       .sort((a, b) =>
         orden === "barato" ? a.precioDesde - b.precioDesde || lejania(a) - lejania(b) : lejania(a) - lejania(b)
       );
-  }, [bares, busqueda, filtroMarca, orden, miUbicacion, centro]);
+  }, [bares, busqueda, filtroMarca, orden, soloTerraza, miUbicacion, centro]);
 
   const seleccionado = bares.find((b) => b.id === seleccionadoId) ?? null;
   const puedeActualizar =
@@ -301,6 +305,7 @@ export default function Home() {
         precio: d.precio,
         marca: d.marca,
         tapa: d.tapa,
+        terraza: d.terraza,
         servicio: "Rápido",
         user_id: usuario.id,
       });
@@ -437,6 +442,8 @@ export default function Home() {
               bares={visibles}
               orden={orden}
               onOrden={setOrden}
+              soloTerraza={soloTerraza}
+              onSoloTerraza={() => setSoloTerraza((x) => !x)}
               marcasTop={marcasOrdenadas.slice(0, 6)}
               filtroMarca={filtroMarca}
               onFiltroMarca={setFiltroMarca}
@@ -515,6 +522,7 @@ export default function Home() {
           miId={usuario.id}
           onCompartir={compartirApp}
           onInstalar={instalar}
+          esAdmin={esAdmin}
           onSalir={async () => {
             await supabase.auth.signOut();
             setPerfilAbierto(false);

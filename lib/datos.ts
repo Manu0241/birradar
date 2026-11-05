@@ -7,7 +7,7 @@ export const URL_BASE = "https://birradar.vercel.app";
 export async function obtenerBares(): Promise<Bar[]> {
   const { data, error } = await supabase
     .from("bares")
-    .select("id, nombre, latitud, longitud, resenas ( id, precio, marca, formato, tapa, user_id, fecha )");
+    .select("id, nombre, latitud, longitud, resenas ( id, precio, marca, formato, tapa, user_id, fecha, terraza )");
   if (error) {
     console.error(error);
     return [];

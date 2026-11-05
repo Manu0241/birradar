@@ -64,7 +64,8 @@ export default async function PaginaBar({ params }: Props) {
 
       <h1 className="mt-8 text-[40px] font-extrabold leading-[1.05] tracking-[-0.04em]">Precio de la caña en {nombre}</h1>
       <p className="mt-3 text-[17px] text-tinta/65">
-        Desde <b className="text-tinta">{euros(bar.precioDesde)} €</b>, {textoTapa(bar.tapa)}. Último precio aportado {haceCuanto(bar.ultimaFecha)}.
+        Desde <b className="text-tinta">{euros(bar.precioDesde)} €</b>, {textoTapa(bar.tapa)}
+        {bar.terraza === true ? " y con terraza" : ""}. Último precio aportado {haceCuanto(bar.ultimaFecha)}.
       </p>
 
       <section aria-label="Carta de precios" className="mt-6 rounded-3xl bg-tinta p-5 text-white">

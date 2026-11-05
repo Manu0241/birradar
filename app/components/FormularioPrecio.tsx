@@ -4,7 +4,7 @@ import type { Bar, Tapa } from "@/lib/bares";
 import { FORMATOS, euros } from "@/lib/bares";
 import type { Marca } from "@/lib/marcas";
 
-export type DatosPrecio = { nombre: string; marca: string; formato: string; precio: number; tapa: Tapa };
+export type DatosPrecio = { nombre: string; marca: string; formato: string; precio: number; tapa: Tapa; terraza: boolean | null };
 
 type Props = {
   bar: Bar | null; // null = bar nuevo
@@ -31,6 +31,7 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
   const [precio, setPrecio] = useState(inicial?.precio ?? 2);
   const [tapa, setTapa] = useState<Tapa | "">(inicial?.tapa ?? "");
   const [verTodas, setVerTodas] = useState(false);
+  const [terraza, setTerraza] = useState<boolean | null>(bar?.terraza ?? null);
 
   const precioActual = bar?.precios.find((p) => p.formato === formato);
   const elegirFormato = (f: string) => {
@@ -65,7 +66,7 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();
-          if (listo) onEnviar({ nombre: nombre.trim(), marca, formato, precio, tapa: tapa as Tapa });
+          if (listo) onEnviar({ nombre: nombre.trim(), marca, formato, precio, tapa: tapa as Tapa, terraza });
         }}
         className="entra mx-auto flex max-h-[94dvh] w-full max-w-md flex-col rounded-t-[32px] bg-zinc-barra"
       >
@@ -184,7 +185,25 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
               ))}
             </div>
           </fieldset>
+
+          <fieldset>
+            <legend className="mb-2 text-[15px] font-bold">¿Tiene terraza?</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {([true, false] as const).map((v) => (
+                <button
+                  key={String(v)}
+                  type="button"
+                  onClick={() => setTerraza(terraza === v ? null : v)}
+                  aria-pressed={terraza === v}
+                  className={`rounded-2xl py-3 text-[15px] font-bold ${terraza === v ? "bg-ambar" : "bg-white ring-1 ring-tinta/10"}`}
+                >
+                  {v ? "🌞 Sí" : "No"}
+                </button>
+              ))}
+            </div>
+          </fieldset>
         </div>
+
 
         <div className="border-t border-tinta/10 bg-zinc-barra px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <button type="submit" disabled={!listo} className="w-full rounded-2xl bg-granate py-4 text-[17px] font-bold text-white disabled:bg-tinta/15 disabled:text-tinta/45">

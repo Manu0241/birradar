@@ -16,6 +16,7 @@ type Props = {
   miId: string;
   onCompartir: () => void;
   onInstalar: (() => void) | null; // null = ya instalada o no se puede desde este navegador
+  esAdmin: boolean;
   onSalir: () => void;
   onCerrar: () => void;
 };
@@ -126,6 +127,11 @@ export default function Perfil(p: Props) {
               <button onClick={p.onInstalar} className="mt-2 w-full rounded-2xl bg-white py-4 text-[16px] font-bold ring-1 ring-tinta/10">
                 Añadir a la pantalla de inicio
               </button>
+            )}
+            {p.esAdmin && (
+              <a href="/admin" className="mt-2 block w-full rounded-2xl bg-ambar py-4 text-center text-[16px] font-bold text-tinta">
+                Panel de administración
+              </a>
             )}
             <button onClick={p.onSalir} className="mt-2 w-full py-2 text-sm font-semibold text-tinta/50">
               Cerrar sesión
