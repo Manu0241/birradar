@@ -85,7 +85,9 @@ export async function crearTarjeta(bar: Bar): Promise<Blob | null> {
   ctx.font = `800 190px ${fuente}`;
   ctx.fillText(euros(bar.precioDesde), cx, cy + 40);
   ctx.font = `700 54px ${fuente}`;
-  ctx.fillText(`€ la ${principal?.formato.toLowerCase() ?? "caña"}`, cx, cy + 120);
+  const formato = (principal?.formato ?? "Caña").toLowerCase();
+  const articulo = formato === "tercio" || formato === "botellín" ? "el" : "la";
+  ctx.fillText(`€ ${articulo} ${formato}`, cx, cy + 120);
 
   // Nombre del bar
   ctx.fillStyle = "#fff";
