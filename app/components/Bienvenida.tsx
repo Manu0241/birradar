@@ -6,6 +6,7 @@ const PASOS = [
   { icono: "📍", titulo: "Cada posavasos es un bar", texto: "El número es lo que cuesta la cerveza más barata. Los amarillos más claros son chollos." },
   { icono: "✍️", titulo: "Tú pones los precios", texto: "Cuando estés en un bar, pulsa «Añadir precio». Ganas 10 XP por bar nuevo y 5 por actualizar uno." },
   { icono: "🤝", titulo: "Precios de la gente", texto: "Mostramos el precio que más se repite en las últimas reseñas, así un error no estropea nada." },
+  { icono: "🏆", titulo: "Gana la semana", texto: "El ranking semanal se reinicia cada lunes. Aporta días seguidos para sumar racha y corónate rey de tu bar." },
 ];
 
 export default function Bienvenida({ onTerminar }: { onTerminar: () => void }) {

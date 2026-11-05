@@ -5,9 +5,10 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { type Bar, type BarDB, type Coordenadas, distanciaKm, nivelDeXp, procesarBares } from "@/lib/bares";
 import { marcasPorPopularidad } from "@/lib/marcas";
+import { compartirTarjeta } from "@/lib/tarjeta";
 import Mapa from "./components/Mapa";
 import ListaBares, { type Orden } from "./components/ListaBares";
-import FichaBar from "./components/FichaBar";
+import FichaBar, { type Rey } from "./components/FichaBar";
 import FormularioPrecio, { type DatosPrecio } from "./components/FormularioPrecio";
 import Perfil, { type FilaRanking } from "./components/Perfil";
 import Bienvenida from "./components/Bienvenida";
@@ -20,6 +21,10 @@ const URL_APP = "https://birradar.vercel.app/";
 const leer = (k: string) => {
   try { return localStorage.getItem(k) ?? sessionStorage.getItem(k); } catch { return null; }
 };
+// Día de hoy y de ayer en España, formato AAAA-MM-DD (igual que la base de datos)
+const diaMadrid = (offsetDias = 0) =>
+  new Date(Date.now() + offsetDias * 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
+
 const guardar = (k: string, sesion = false) => {
   try { (sesion ? sessionStorage : localStorage).setItem(k, "1"); } catch {}
 };
@@ -40,8 +45,10 @@ export default function Home() {
   const [hojaAlta, setHojaAlta] = useState(false);
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [perfil, setPerfil] = useState<{ xp: number; nombre: string; avatar: string } | null>(null);
+  const [perfil, setPerfil] = useState<{ xp: number; nombre: string; avatar: string; racha: number; ultimoDia: string | null } | null>(null);
   const [ranking, setRanking] = useState<FilaRanking[]>([]);
+  const [rankingSemanal, setRankingSemanal] = useState<FilaRanking[]>([]);
+  const [perfilesReyes, setPerfilesReyes] = useState<Record<string, { nombre: string; avatar_url: string }>>({});
   const [perfilAbierto, setPerfilAbierto] = useState(false);
 
   const [formulario, setFormulario] = useState<{ bar: Bar | null; ubicacion: Coordenadas } | null>(null);
@@ -71,21 +78,32 @@ export default function Home() {
   }, []);
 
   const cargarRanking = useCallback(async () => {
-    const { data } = await supabase.from("perfiles").select("id, nombre, avatar_url, xp").order("xp", { ascending: false }).limit(20);
-    if (data) setRanking(data as FilaRanking[]);
+    const [siempre, semana] = await Promise.all([
+      supabase.from("perfiles").select("id, nombre, avatar_url, xp").order("xp", { ascending: false }).limit(20),
+      supabase.rpc("ranking_semanal"),
+    ]);
+    if (siempre.data) setRanking(siempre.data as FilaRanking[]);
+    if (semana.data) setRankingSemanal(semana.data as FilaRanking[]);
   }, []);
 
   /** Lee el perfil (lo crea la primera vez). Los puntos los pone la base de datos, nunca la app. */
-  const cargarPerfil = useCallback(async (u: User): Promise<number> => {
+  const cargarPerfil = useCallback(async (u: User): Promise<{ xp: number; racha: number }> => {
     const meta = u.user_metadata ?? {};
-    let { data } = await supabase.from("perfiles").select("nombre, avatar_url, xp").eq("id", u.id).maybeSingle();
+    const columnas = "nombre, avatar_url, xp, racha, ultimo_dia";
+    let { data } = await supabase.from("perfiles").select(columnas).eq("id", u.id).maybeSingle();
     if (!data) {
       await supabase.from("perfiles").insert({ id: u.id, nombre: meta.full_name ?? "Cazador novato", avatar_url: meta.avatar_url ?? "" });
-      ({ data } = await supabase.from("perfiles").select("nombre, avatar_url, xp").eq("id", u.id).maybeSingle());
+      ({ data } = await supabase.from("perfiles").select(columnas).eq("id", u.id).maybeSingle());
     }
     const xp = data?.xp ?? 0;
-    setPerfil({ xp, nombre: data?.nombre ?? meta.full_name ?? "Tú", avatar: data?.avatar_url || meta.avatar_url || "" });
-    return xp;
+    setPerfil({
+      xp,
+      nombre: data?.nombre ?? meta.full_name ?? "Tú",
+      avatar: data?.avatar_url || meta.avatar_url || "",
+      racha: data?.racha ?? 0,
+      ultimoDia: data?.ultimo_dia ?? null,
+    });
+    return { xp, racha: data?.racha ?? 0 };
   }, []);
 
   const ubicar = useCallback(
@@ -138,6 +156,19 @@ export default function Home() {
   // ---------- Derivados ----------
   const bares = useMemo(() => procesarBares(datos, miUbicacion), [datos, miUbicacion]);
 
+  // Nombres y fotos de los "reyes" de cada bar
+  useEffect(() => {
+    const ids = [...new Set(bares.flatMap((b) => (b.rey ? [b.rey.userId] : [])))];
+    if (ids.length === 0) return;
+    supabase
+      .from("perfiles")
+      .select("id, nombre, avatar_url")
+      .in("id", ids)
+      .then(({ data }) => {
+        if (data) setPerfilesReyes(Object.fromEntries(data.map((d) => [d.id, { nombre: d.nombre ?? "Alguien", avatar_url: d.avatar_url ?? "" }])));
+      });
+  }, [bares]);
+
   const marcasOrdenadas = useMemo(() => {
     const ref = miUbicacion ?? CENTRO_INICIAL;
     return marcasPorPopularidad(
@@ -163,6 +194,16 @@ export default function Home() {
   const seleccionado = bares.find((b) => b.id === seleccionadoId) ?? null;
   const puedeActualizar =
     !!seleccionado && !!miUbicacion && distanciaKm(miUbicacion, [seleccionado.latitud, seleccionado.longitud]) <= RADIO_ACTUALIZAR_KM;
+  const reySeleccionado: Rey | null =
+    seleccionado?.rey && perfilesReyes[seleccionado.rey.userId]
+      ? {
+          nombre: perfilesReyes[seleccionado.rey.userId].nombre,
+          avatar: perfilesReyes[seleccionado.rey.userId].avatar_url,
+          aportaciones: seleccionado.rey.aportaciones,
+          soyYo: seleccionado.rey.userId === usuario?.id,
+        }
+      : null;
+  const rachaViva = !!perfil?.ultimoDia && (perfil.ultimoDia === diaMadrid() || perfil.ultimoDia === diaMadrid(-1));
   const descubiertos = usuario ? datos.filter((b) => b.resenas?.some((r) => r.user_id === usuario.id)).length : 0;
 
   // ---------- Acciones ----------
@@ -227,10 +268,11 @@ export default function Home() {
       });
       if (error) throw error;
 
-      const xp = await cargarPerfil(usuario);
+      const { xp, racha } = await cargarPerfil(usuario);
       const ganado = xp - xpAntes;
-      if (nivelDeXp(xp) > nivelDeXp(xpAntes)) avisar(`¡Subes a nivel ${nivelDeXp(xp)}! Precio guardado, +${ganado} XP`);
-      else if (ganado > 0) avisar(`Precio guardado. +${ganado} XP`);
+      const conRacha = racha > 1 && perfil?.ultimoDia !== diaMadrid() ? ` Racha de ${racha} días 🔥` : "";
+      if (nivelDeXp(xp) > nivelDeXp(xpAntes)) avisar(`¡Subes a nivel ${nivelDeXp(xp)}! Precio guardado, +${ganado} XP.${conRacha}`);
+      else if (ganado > 0) avisar(`Precio guardado. +${ganado} XP.${conRacha}`);
       else avisar("Precio guardado. Los puntos de este bar ya los ganaste hoy.");
 
       setFormulario(null);
@@ -242,6 +284,16 @@ export default function Home() {
       avisar("No se pudo guardar el precio. Revisa tu conexión e inténtalo de nuevo.");
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const compartirBar = async () => {
+    if (!seleccionado) return;
+    try {
+      const r = await compartirTarjeta(seleccionado);
+      if (r === "descargada") avisar("Tarjeta descargada. Súbela a tus historias o mándala por WhatsApp.");
+    } catch {
+      // el usuario canceló el menú de compartir
     }
   };
 
@@ -336,6 +388,8 @@ export default function Home() {
           {seleccionado ? (
             <FichaBar
               bar={seleccionado}
+              rey={reySeleccionado}
+              onCompartir={compartirBar}
               puedeActualizar={puedeActualizar || !usuario}
               onActualizar={actualizarSeleccionado}
               onCerrar={() => setSeleccionadoId(null)}
@@ -393,8 +447,11 @@ export default function Home() {
           nombre={perfil.nombre}
           avatar={perfil.avatar}
           xp={perfil.xp}
+          racha={perfil.racha}
+          rachaViva={rachaViva}
           descubiertos={descubiertos}
           ranking={ranking}
+          rankingSemanal={rankingSemanal}
           miId={usuario.id}
           onCompartir={compartirApp}
           onSalir={async () => {

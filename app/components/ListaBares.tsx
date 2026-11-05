@@ -101,6 +101,7 @@ export default function ListaBares(p: Props) {
                   <span className="flex items-center gap-2">
                     <span className="truncate text-[17px] font-bold capitalize tracking-[-0.01em]">{bar.nombre}</span>
                     {bar.chollo && <span className="shrink-0 rounded-md bg-granate px-1.5 py-0.5 text-[11px] font-bold text-white">Chollo</span>}
+                    {bar.precioViejo && <span className="shrink-0 rounded-md bg-ambar px-1.5 py-0.5 text-[11px] font-bold">XP doble</span>}
                   </span>
                   <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-tinta/60">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: marca.color }} />

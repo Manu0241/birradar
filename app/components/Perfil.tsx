@@ -8,8 +8,11 @@ type Props = {
   nombre: string;
   avatar: string;
   xp: number;
+  racha: number;
+  rachaViva: boolean; // aportó hoy o ayer, la racha sigue
   descubiertos: number;
   ranking: FilaRanking[];
+  rankingSemanal: FilaRanking[];
   miId: string;
   onCompartir: () => void;
   onSalir: () => void;
@@ -29,6 +32,9 @@ function Avatar({ src, tam, nombre }: { src: string; tam: number; nombre: string
 
 export default function Perfil(p: Props) {
   const [vista, setVista] = useState<"yo" | "ranking">("yo");
+  const [periodo, setPeriodo] = useState<"semana" | "siempre">("semana");
+  const lista = periodo === "semana" ? p.rankingSemanal : p.ranking;
+  const diasHastaLunes = ((8 - new Date().getDay()) % 7) || 7;
   const nivel = nivelDeXp(p.xp);
   const enNivel = p.xp % XP_POR_NIVEL;
   const faltan = XP_POR_NIVEL - enNivel;
@@ -89,7 +95,19 @@ export default function Perfil(p: Props) {
               Te faltan <b className="text-tinta">{faltan} XP</b> para el nivel {nivel + 1}
             </p>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
+            <div className={`mt-5 flex items-center gap-3 rounded-3xl p-4 text-left ${p.rachaViva && p.racha > 0 ? "bg-tinta text-white" : "bg-white ring-1 ring-tinta/10"}`}>
+              <span className="text-4xl leading-none" aria-hidden>{p.rachaViva && p.racha > 0 ? "🔥" : "🕯️"}</span>
+              <div>
+                <p className="text-[19px] font-extrabold leading-tight">
+                  {p.rachaViva && p.racha > 0 ? `Racha de ${p.racha} ${p.racha === 1 ? "día" : "días"}` : "Sin racha ahora mismo"}
+                </p>
+                <p className={`text-[13px] ${p.rachaViva && p.racha > 0 ? "text-white/70" : "text-tinta/60"}`}>
+                  Aporta un precio cada día: +1 XP extra por día seguido, hasta +5.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <div className="rounded-3xl bg-white p-4 ring-1 ring-tinta/10">
                 <p className="text-[34px] font-extrabold leading-none tabular-nums">{p.descubiertos}</p>
                 <p className="mt-1 text-sm font-semibold text-tinta/55">bares reseñados</p>
@@ -108,8 +126,31 @@ export default function Perfil(p: Props) {
             </button>
           </div>
         ) : (
-          <ol className="mt-5 space-y-2">
-            {p.ranking.map((u, i) => {
+          <div className="mt-5">
+            <div className="grid grid-cols-2 gap-2">
+              {(["semana", "siempre"] as const).map((x) => (
+                <button
+                  key={x}
+                  onClick={() => setPeriodo(x)}
+                  aria-pressed={periodo === x}
+                  className={`rounded-2xl py-2.5 text-sm font-bold ${periodo === x ? "bg-granate text-white" : "bg-white text-tinta/70 ring-1 ring-tinta/10"}`}
+                >
+                  {x === "semana" ? "Esta semana" : "De siempre"}
+                </button>
+              ))}
+            </div>
+            {periodo === "semana" && (
+              <p className="mt-2 text-center text-[13px] text-tinta/55">
+                Se reinicia el lunes ({diasHastaLunes === 1 ? "mañana" : `en ${diasHastaLunes} días`}). Cualquiera puede ganar.
+              </p>
+            )}
+            {lista.length === 0 && (
+              <p className="mt-6 rounded-3xl bg-white p-6 text-center text-[15px] font-semibold ring-1 ring-tinta/10">
+                Nadie ha sumado puntos esta semana. Añade un precio y empiezas primero.
+              </p>
+            )}
+          <ol className="mt-3 space-y-2">
+            {lista.map((u, i) => {
               const yo = u.id === p.miId;
               return (
                 <li key={u.id} className={`flex items-center gap-3 rounded-2xl p-3 ${yo ? "bg-ambar" : "bg-white ring-1 ring-tinta/10"}`}>
@@ -126,6 +167,7 @@ export default function Perfil(p: Props) {
               );
             })}
           </ol>
+          </div>
         )}
       </div>
     </div>

@@ -75,7 +75,7 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
               {bar ? `Precio en ${bar.nombre}` : "Bar nuevo"}
             </h2>
             <p className="text-sm text-tinta/60">
-              {bar ? "Confirma o corrige lo que cuesta hoy. +5 XP" : "Lo colocamos donde estás ahora. +10 XP"}
+              {bar ? `Confirma o corrige lo que cuesta hoy. +${bar.precioViejo ? 10 : 5} XP` : "Lo colocamos donde estás ahora. +10 XP"}
             </p>
             {bar && (
               <button type="button" onClick={onEsOtroBar} className="mt-1 text-sm font-semibold text-granate underline underline-offset-2">

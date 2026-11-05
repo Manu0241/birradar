@@ -41,8 +41,12 @@ export type Bar = {
   numResenas: number;
   ultimaFecha: string;
   chollo: boolean;
+  precioViejo: boolean; // más de 90 días sin actualizar: actualizarlo da el doble de XP
+  rey: { userId: string; aportaciones: number } | null; // quien más precios ha aportado aquí
   distanciaKm: number | null;
 };
+
+export const DIAS_PRECIO_VIEJO = 90;
 
 export const FORMATOS = ["Caña", "Doble", "Tercio"] as const;
 export const XP_POR_NIVEL = 30;
@@ -102,6 +106,10 @@ export function procesarBares(datos: BarDB[], desde: Coordenadas | null): Bar[] 
         .sort((a, b) => ordenFormato(a.formato) - ordenFormato(b.formato));
 
       const tapas = precios.map((p) => p.tapa);
+      const porUsuario: Record<string, number> = {};
+      for (const r of resenas) if (r.user_id) porUsuario[r.user_id] = (porUsuario[r.user_id] ?? 0) + 1;
+      const [reyId, reyCuenta] = Object.entries(porUsuario).sort((a, b) => b[1] - a[1])[0] ?? [];
+      const ultimaFecha = resenas[0]?.fecha ?? "";
       return {
         id: b.id,
         nombre: b.nombre.trim(),
@@ -112,8 +120,10 @@ export function procesarBares(datos: BarDB[], desde: Coordenadas | null): Bar[] 
         marca: resenas.length ? moda(resenas.slice(0, 10).map((r) => r.marca)).valor : "",
         tapa: (tapas.includes("Contundente") ? "Contundente" : tapas.includes("Simple") ? "Simple" : "No") as Tapa,
         numResenas: resenas.length,
-        ultimaFecha: resenas[0]?.fecha ?? "",
+        ultimaFecha,
         chollo: false,
+        precioViejo: !!ultimaFecha && Date.now() - fechaMs(ultimaFecha) > DIAS_PRECIO_VIEJO * 86_400_000,
+        rey: reyId && reyCuenta >= 2 ? { userId: reyId, aportaciones: reyCuenta } : null,
         distanciaKm: desde ? distanciaKm(desde, [b.latitud, b.longitud]) : null,
       };
     })
@@ -136,10 +146,12 @@ export function textoDistancia(km: number | null) {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace(".", ",")} km`;
 }
 
+// Las fechas de Supabase vienen en UTC, a veces sin zona horaria
+export const fechaMs = (fecha: string) => Date.parse(/Z$|[+-]\d\d:?\d\d$/.test(fecha) ? fecha : fecha + "Z");
+
 export function haceCuanto(fecha: string) {
   if (!fecha) return "";
-  const t = Date.parse(fecha.endsWith("Z") || fecha.includes("+") ? fecha : fecha + "Z");
-  const dias = Math.floor((Date.now() - t) / 86_400_000);
+  const dias = Math.floor((Date.now() - fechaMs(fecha)) / 86_400_000);
   if (dias <= 0) return "hoy";
   if (dias === 1) return "ayer";
   if (dias < 14) return `hace ${dias} días`;

@@ -4,22 +4,18 @@ import { euros, haceCuanto, textoDistancia } from "@/lib/bares";
 import { infoMarca } from "@/lib/marcas";
 import { iconoTapa } from "./ListaBares";
 
+export type Rey = { nombre: string; avatar: string; aportaciones: number; soyYo: boolean };
+
 type Props = {
   bar: Bar;
+  rey: Rey | null;
   puedeActualizar: boolean;
   onActualizar: () => void;
+  onCompartir: () => void;
   onCerrar: () => void;
 };
 
-export default function FichaBar({ bar, puedeActualizar, onActualizar, onCerrar }: Props) {
-  const compartir = async () => {
-    const texto = `${bar.nombre}: caña desde ${euros(bar.precioDesde)} € en Birradar`;
-    const url = "https://birradar.vercel.app/";
-    try {
-      if (navigator.share) await navigator.share({ title: "Birradar", text: texto, url });
-      else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`${texto} ${url}`)}`, "_blank");
-    } catch {}
-  };
+export default function FichaBar({ bar, rey, puedeActualizar, onActualizar, onCompartir, onCerrar }: Props) {
 
   return (
     <div className="entra px-5">
@@ -36,6 +32,12 @@ export default function FichaBar({ bar, puedeActualizar, onActualizar, onCerrar 
           ✕
         </button>
       </div>
+
+      {bar.precioViejo && (
+        <p className="mt-3 rounded-2xl bg-ambar px-4 py-2.5 text-sm font-semibold">
+          Este precio lleva más de 3 meses sin revisar. Si lo actualizas ganas 10 XP en vez de 5.
+        </p>
+      )}
 
       {bar.chollo && (
         <p className="mt-3 rounded-2xl bg-granate px-4 py-2.5 text-sm font-semibold text-white">
@@ -67,6 +69,26 @@ export default function FichaBar({ bar, puedeActualizar, onActualizar, onCerrar 
         })}
       </div>
 
+      {rey && (
+        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-zinc-barra p-3">
+          {rey.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={rey.avatar} alt="" referrerPolicy="no-referrer" className="h-11 w-11 rounded-full object-cover ring-2 ring-ambar" />
+          ) : (
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-ambar text-lg font-extrabold">{rey.nombre.slice(0, 1)}</span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-bold">
+              <span aria-hidden>👑 </span>
+              {rey.soyYo ? "Eres el rey de este bar" : `${rey.nombre}, rey del bar`}
+            </p>
+            <p className="text-[13px] text-tinta/60">
+              {rey.aportaciones} precios aportados aquí{!rey.soyYo && ". Aporta más y quítale la corona."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 grid grid-cols-2 gap-2">
         <a
           href={`https://www.google.com/maps/dir/?api=1&destination=${bar.latitud},${bar.longitud}`}
@@ -76,8 +98,8 @@ export default function FichaBar({ bar, puedeActualizar, onActualizar, onCerrar 
         >
           Cómo llegar
         </a>
-        <button onClick={compartir} className="rounded-2xl bg-white py-3.5 text-[15px] font-bold ring-1 ring-tinta/10">
-          Compartir
+        <button onClick={onCompartir} className="rounded-2xl bg-white py-3.5 text-[15px] font-bold ring-1 ring-tinta/10">
+          Compartir tarjeta
         </button>
       </div>
 
