@@ -57,6 +57,18 @@ export default function Home() {
   const temporizadorAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hojaRef = useRef<HTMLDivElement>(null);
 
+  // Instalación como app (Android/Chrome): guardamos el aviso del navegador para lanzarlo desde el tutorial
+  type AvisoInstalacion = Event & { prompt: () => Promise<void> };
+  const [avisoInstalar, setAvisoInstalar] = useState<AvisoInstalacion | null>(null);
+  useEffect(() => {
+    const guardarAviso = (e: Event) => {
+      e.preventDefault();
+      setAvisoInstalar(e as AvisoInstalacion);
+    };
+    window.addEventListener("beforeinstallprompt", guardarAviso);
+    return () => window.removeEventListener("beforeinstallprompt", guardarAviso);
+  }, []);
+
   // Al cambiar entre lista y ficha, volver arriba de la hoja
   useEffect(() => {
     hojaRef.current?.scrollTo({ top: 0 });
@@ -130,7 +142,7 @@ export default function Home() {
     const t2 = setTimeout(() => {
       setSplash("fuera");
       guardar("splashVisto", true);
-      if (!leer("tutorialVisto")) setBienvenida(true);
+      if (!leer("tutorialVisto2")) setBienvenida(true);
     }, yaVisto ? 0 : 1500);
 
     // Enlace directo a un bar: /?bar=<id> (desde las páginas de cada bar)
@@ -479,8 +491,16 @@ export default function Home() {
 
       {bienvenida && (
         <Bienvenida
+          onInstalar={
+            avisoInstalar
+              ? () => {
+                  avisoInstalar.prompt().catch(() => {});
+                  setAvisoInstalar(null);
+                }
+              : null
+          }
           onTerminar={() => {
-            guardar("tutorialVisto");
+            guardar("tutorialVisto2");
             setBienvenida(false);
           }}
         />

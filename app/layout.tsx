@@ -35,6 +35,7 @@ export const metadata: Metadata = {
   },
   twitter: { card: "summary_large_image", title: "Birradar: cañas baratas cerca de ti", description: descripcion },
   manifest: "/manifest.json",
+  icons: { icon: "/icono-192.png", apple: "/icono-192.png" },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Birradar" },
 };
 
