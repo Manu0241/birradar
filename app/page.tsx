@@ -450,6 +450,9 @@ export default function Home() {
               puedeActualizar={puedeActualizar || !usuario}
               onActualizar={actualizarSeleccionado}
               onCerrar={() => setSeleccionadoId(null)}
+              usuario={usuario}
+              onEntrar={entrar}
+              avisar={avisar}
             />
           ) : (
             <ListaBares

@@ -2,7 +2,9 @@
 import type { Bar, Coordenadas } from "@/lib/bares";
 import { euros, haceCuanto, textoDistancia, urlComoLlegar } from "@/lib/bares";
 import { infoMarca } from "@/lib/marcas";
+import type { User } from "@supabase/supabase-js";
 import { iconoTapa } from "./ListaBares";
+import NotasBar from "./NotasBar";
 
 export type Rey = { nombre: string; avatar: string; aportaciones: number; soyYo: boolean };
 
@@ -14,9 +16,12 @@ type Props = {
   onActualizar: () => void;
   onCompartir: () => void;
   onCerrar: () => void;
+  usuario: User | null;
+  onEntrar: () => void;
+  avisar: (texto: string) => void;
 };
 
-export default function FichaBar({ bar, origen, rey, puedeActualizar, onActualizar, onCompartir, onCerrar }: Props) {
+export default function FichaBar({ bar, origen, rey, puedeActualizar, onActualizar, onCompartir, onCerrar, usuario, onEntrar, avisar }: Props) {
 
   return (
     <div className="entra px-5">
@@ -116,6 +121,8 @@ export default function FichaBar({ bar, origen, rey, puedeActualizar, onActualiz
       >
         {puedeActualizar ? "Actualizar precio" : "Acércate al bar para actualizar el precio"}
       </button>
+
+      <NotasBar barId={bar.id} usuario={usuario} onEntrar={onEntrar} avisar={avisar} />
     </div>
   );
 }

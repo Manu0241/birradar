@@ -19,6 +19,7 @@ type ResenaPanel = {
   id_bar: string;
 };
 type BarPanel = { id: string; nombre: string; latitud: number; longitud: number; resenas: { id: string; fecha: string }[] };
+type NotaPanel = { id: string; texto: string; creado: string; user_id: string; id_bar: string };
 type Estado = "cargando" | "sin-sesion" | "sin-permiso" | "listo";
 
 const SIETE_DIAS = 7 * 86_400_000;
@@ -26,9 +27,10 @@ const SIETE_DIAS = 7 * 86_400_000;
 export default function Panel() {
   const [estado, setEstado] = useState<Estado>("cargando");
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [vista, setVista] = useState<"precios" | "bares">("precios");
+  const [vista, setVista] = useState<"precios" | "bares" | "notas">("precios");
   const [resenas, setResenas] = useState<ResenaPanel[]>([]);
   const [bares, setBares] = useState<BarPanel[]>([]);
+  const [notas, setNotas] = useState<NotaPanel[]>([]);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [usuarios, setUsuarios] = useState(0);
   const [busqueda, setBusqueda] = useState("");
@@ -43,7 +45,7 @@ export default function Panel() {
   };
 
   const cargar = useCallback(async () => {
-    const [r, b, p] = await Promise.all([
+    const [r, b, p, n] = await Promise.all([
       supabase
         .from("resenas")
         .select("id, precio, formato, marca, tapa, terraza, fecha, xp_ganado, user_id, id_bar")
@@ -51,7 +53,9 @@ export default function Panel() {
         .limit(300),
       supabase.from("bares").select("id, nombre, latitud, longitud, resenas ( id, fecha )"),
       supabase.from("perfiles").select("id, nombre"),
+      supabase.from("notas").select("id, texto, creado, user_id, id_bar").order("creado", { ascending: false }).limit(300),
     ]);
+    if (n.data) setNotas(n.data as NotaPanel[]);
     if (r.data) setResenas(r.data as ResenaPanel[]);
     if (b.data) setBares(b.data as BarPanel[]);
     if (p.data) {
@@ -90,6 +94,13 @@ export default function Panel() {
   const resenasVisibles = resenas.filter(
     (r) => !texto || (nombreBar[r.id_bar] ?? "").toLowerCase().includes(texto) || (nombres[r.user_id ?? ""] ?? "").toLowerCase().includes(texto)
   );
+  const notasVisibles = notas.filter(
+    (x) =>
+      !texto ||
+      x.texto.toLowerCase().includes(texto) ||
+      (nombreBar[x.id_bar] ?? "").toLowerCase().includes(texto) ||
+      (nombres[x.user_id] ?? "").toLowerCase().includes(texto)
+  );
   const baresVisibles = bares
     .filter((b) => !texto || b.nombre.toLowerCase().includes(texto))
     .sort((a, b) => (b.resenas[0]?.fecha ?? "").localeCompare(a.resenas[0]?.fecha ?? ""));
@@ -112,6 +123,16 @@ export default function Panel() {
     setEditando(null);
     if (error) return avisar(`No se pudo: ${error.message}`);
     avisar(ok);
+    await cargar();
+  };
+
+  const borrarNota = async (id: string) => {
+    setOcupado(true);
+    const { error } = await supabase.from("notas").delete().eq("id", id);
+    setOcupado(false);
+    setConfirmar(null);
+    if (error) return avisar(`No se pudo: ${error.message}`);
+    avisar("Nota borrada");
     await cargar();
   };
 
@@ -163,7 +184,7 @@ export default function Panel() {
       </section>
 
       <div className="mt-5 flex gap-2">
-        {(["precios", "bares"] as const).map((v) => (
+        {(["precios", "bares", "notas"] as const).map((v) => (
           <button
             key={v}
             onClick={() => {
@@ -173,7 +194,7 @@ export default function Panel() {
             aria-pressed={vista === v}
             className={`rounded-full px-4 py-2 text-sm font-bold ${vista === v ? "bg-tinta text-white" : "bg-white text-tinta/70 ring-1 ring-tinta/10"}`}
           >
-            {v === "precios" ? "Últimos precios" : `Bares${duplicados.size ? ` (${duplicados.size} repetidos)` : ""}`}
+            {v === "precios" ? "Últimos precios" : v === "notas" ? `Notas (${notas.length})` : `Bares${duplicados.size ? ` (${duplicados.size} repetidos)` : ""}`}
           </button>
         ))}
       </div>
@@ -183,7 +204,7 @@ export default function Panel() {
           type="search"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder={vista === "precios" ? "Buscar por bar o persona" : "Buscar bar"}
+          placeholder={vista === "bares" ? "Buscar bar" : vista === "notas" ? "Buscar por texto, bar o persona" : "Buscar por bar o persona"}
           className="w-full rounded-2xl border-0 bg-white px-4 py-3 text-[15px] outline-none ring-1 ring-tinta/10 focus:ring-2 focus:ring-ambar"
         />
       </label>
@@ -231,6 +252,37 @@ export default function Panel() {
             );
           })}
           {resenasVisibles.length === 0 && <p className="py-8 text-center text-tinta/55">No hay precios que coincidan.</p>}
+        </ul>
+      ) : vista === "notas" ? (
+        <ul className="mt-3 space-y-2">
+          {notasVisibles.map((x) => (
+            <li key={x.id} className="rounded-2xl bg-white p-3 ring-1 ring-tinta/10">
+              <p className="truncate text-[16px] font-bold capitalize">{nombreBar[x.id_bar] ?? "Bar borrado"}</p>
+              <p className="mt-1 whitespace-pre-line break-words text-[15px]">{x.texto}</p>
+              <p className="mt-1 text-[12px] text-tinta/50">
+                {nombres[x.user_id] ?? "Usuario"}, {haceCuanto(x.creado)}
+              </p>
+              {confirmar === x.id ? (
+                <div className="mt-2 flex gap-2">
+                  <button
+                    disabled={ocupado}
+                    onClick={() => borrarNota(x.id)}
+                    className="flex-1 rounded-xl bg-granate py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    Sí, borrar esta nota
+                  </button>
+                  <button onClick={() => setConfirmar(null)} className="flex-1 rounded-xl bg-zinc-barra py-2 text-sm font-bold">
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmar(x.id)} className="mt-2 text-sm font-semibold text-granate underline underline-offset-2">
+                  Borrar nota
+                </button>
+              )}
+            </li>
+          ))}
+          {notasVisibles.length === 0 && <p className="py-8 text-center text-tinta/55">No hay notas que coincidan.</p>}
         </ul>
       ) : (
         <ul className="mt-3 space-y-2">
