@@ -149,7 +149,7 @@ export default function Acceso({ onCerrar, onEntrado }: { onCerrar: () => void; 
   const titulos: Record<Modo, [string, string]> = {
     inicio: ["Entra en Birradar", "Para añadir precios y sumar puntos."],
     registro: ["Crea tu cuenta", "Te enviaremos un código para verificar tu correo."],
-    codigo: ["Revisa tu correo", `Hemos enviado un código de 6 dígitos a ${email.trim()}.`],
+    codigo: ["Revisa tu correo", `Te hemos enviado un correo a ${email.trim()}. Escribe aquí el código de 6 dígitos o pulsa el botón del correo.`],
     recuperar: ["¿Olvidaste tu contraseña?", "Te enviamos un código para crear una nueva."],
     nuevaClave: ["Nueva contraseña", "Elige una contraseña de al menos 8 caracteres."],
   };
