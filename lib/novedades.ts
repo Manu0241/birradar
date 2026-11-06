@@ -10,6 +10,7 @@ export const NOVEDADES: Novedad[] = [
   { id: 4, fecha: "2026-11-05", icono: "🌞", titulo: "Terrazas", texto: "Al añadir un precio puedes decir si tiene terraza. Y en la lista, filtra solo los bares con terraza." },
   { id: 5, fecha: "2026-11-05", icono: "🍾", titulo: "Botellín, Victoria y 1906", texto: "Nuevo tamaño botellín y dos marcas más para elegir al poner un precio." },
   { id: 6, fecha: "2026-11-05", icono: "📲", titulo: "Tenla en tu pantalla de inicio", texto: "Desde tu perfil puedes añadir Birradar como una app más, sin descargar nada." },
+  { id: 7, fecha: "2026-11-06", icono: "✉️", titulo: "Entra con tu correo", texto: "Ya no hace falta Google: crea tu cuenta con correo y contraseña y verifícala con un código." },
 ];
 
 export const ULTIMA_NOVEDAD = NOVEDADES.reduce((m, n) => Math.max(m, n.id), 0);

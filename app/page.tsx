@@ -14,6 +14,7 @@ import Perfil, { type FilaRanking } from "./components/Perfil";
 import Bienvenida from "./components/Bienvenida";
 import GuiaInstalarIOS from "./components/GuiaInstalarIOS";
 import Novedades from "./components/Novedades";
+import Acceso from "./components/Acceso";
 import { NOVEDADES, ULTIMA_NOVEDAD, type Novedad } from "@/lib/novedades";
 import { useInstalacion } from "@/lib/instalar";
 
@@ -60,6 +61,7 @@ export default function Home() {
   const [perfilesReyes, setPerfilesReyes] = useState<Record<string, { nombre: string; avatar_url: string }>>({});
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const [esAdmin, setEsAdmin] = useState(false);
+  const [accesoAbierto, setAccesoAbierto] = useState(false);
 
   const [formulario, setFormulario] = useState<{ bar: Bar | null; ubicacion: Coordenadas } | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -262,10 +264,8 @@ export default function Home() {
   const descubiertos = usuario ? datos.filter((b) => b.resenas?.some((r) => r.user_id === usuario.id)).length : 0;
 
   // ---------- Acciones ----------
-  const entrar = () =>
-    supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } }).then(({ error }) => {
-      if (error) avisar("No se pudo conectar con Google. Inténtalo de nuevo.");
-    });
+  // Abre la ventana de acceso: Google o correo y contraseña con código de verificación
+  const entrar = () => setAccesoAbierto(true);
 
   const elegirBar = (bar: Bar) => {
     setSeleccionadoId(bar.id);
@@ -507,6 +507,16 @@ export default function Home() {
             ✕
           </button>
         </div>
+      )}
+
+      {accesoAbierto && !usuario && (
+        <Acceso
+          onCerrar={() => setAccesoAbierto(false)}
+          onEntrado={(texto) => {
+            setAccesoAbierto(false);
+            avisar(texto);
+          }}
+        />
       )}
 
       {guiaIOS && <GuiaInstalarIOS arriba={instalacion.compartirArriba} onCerrar={() => setGuiaIOS(false)} />}
