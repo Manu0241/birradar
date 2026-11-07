@@ -39,6 +39,7 @@ export default function Acceso({ onCerrar, onEntrado }: { onCerrar: () => void; 
   const [email, setEmail] = useState("");
   const [clave, setClave] = useState("");
   const [codigo, setCodigo] = useState("");
+  const [mayorEdad, setMayorEdad] = useState(false); // casilla +18 al crear la cuenta (sin verificar)
   const [paraRecuperar, setParaRecuperar] = useState(false); // el código es para cambiar la contraseña
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -96,10 +97,11 @@ export default function Acceso({ onCerrar, onEntrado }: { onCerrar: () => void; 
     ejecutar(async () => {
       if (nombre.trim().length < 2) throw new Error("Pon un nombre de usuario de al menos 2 letras.");
       if (clave.length < 8) throw new Error("password should be at least 8 characters");
+      if (!mayorEdad) throw new Error("Pon la marca de que tienes 18 años o más para crear la cuenta.");
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password: clave,
-        options: { data: { full_name: nombre.trim() } },
+        options: { data: { full_name: nombre.trim(), mayor_de_18: true } },
       });
       if (error) throw error;
       // Supabase no avisa si el correo ya existía: en ese caso no devuelve identidades
@@ -185,6 +187,7 @@ export default function Acceso({ onCerrar, onEntrado }: { onCerrar: () => void; 
               <button type="button" onClick={conGoogle} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-3.5 text-[16px] font-bold ring-1 ring-tinta/10">
                 <IconoGoogle /> Continuar con Google
               </button>
+              <p className="text-center text-[12px] text-tinta/50">Birradar es solo para mayores de 18 años.</p>
               <div className="flex items-center gap-3 py-1 text-[13px] font-semibold text-tinta/45">
                 <span className="h-px flex-1 bg-tinta/10" /> o con tu correo <span className="h-px flex-1 bg-tinta/10" />
               </div>
@@ -221,6 +224,18 @@ export default function Acceso({ onCerrar, onEntrado }: { onCerrar: () => void; 
             </label>
           )}
 
+          {modo === "registro" && (
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-[15px] font-bold ring-1 ring-tinta/10">
+              <input
+                type="checkbox"
+                checked={mayorEdad}
+                onChange={(e) => setMayorEdad(e.target.checked)}
+                className="h-6 w-6 shrink-0 accent-[#8B0000]"
+              />
+              Tengo 18 años o más
+            </label>
+          )}
+
           {modo === "codigo" && (
             <label className="block">
               <span className="sr-only">Código de 6 dígitos</span>
@@ -245,7 +260,7 @@ export default function Acceso({ onCerrar, onEntrado }: { onCerrar: () => void; 
 
           <button
             type="submit"
-            disabled={ocupado || (modo === "codigo" && codigo.length !== 6)}
+            disabled={ocupado || (modo === "codigo" && codigo.length !== 6) || (modo === "registro" && !mayorEdad)}
             className="w-full rounded-2xl bg-granate py-4 text-[17px] font-bold text-white disabled:bg-tinta/15 disabled:text-tinta/45"
           >
             {ocupado
