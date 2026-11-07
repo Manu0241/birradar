@@ -18,6 +18,8 @@ export const MARCAS: Marca[] = [
   { id: "☀️ Sol", nombre: "Sol", color: "#E8B923" },
   { id: "🦌 Jäger/Radler", nombre: "Radler", color: "#5A9E3D" },
   { id: "🍀 Guinness", nombre: "Guinness", color: "#1B1A18" },
+  { id: "🚫 Sin alcohol", nombre: "Sin alcohol (0,0)", color: "#3E8EA8" },
+  { id: "🌾 Sin gluten", nombre: "Sin gluten", color: "#C9A227" },
   { id: "🐐 Artesanal/Otra", nombre: "Artesanal u otra", color: "#6D4C8E" },
 ];
 

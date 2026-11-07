@@ -63,7 +63,8 @@ export default function Home() {
   const [esAdmin, setEsAdmin] = useState(false);
   const [accesoAbierto, setAccesoAbierto] = useState(false);
 
-  const [formulario, setFormulario] = useState<{ bar: Bar | null; ubicacion: Coordenadas } | null>(null);
+  const [formulario, setFormulario] = useState<{ bar: Bar | null; ubicacion: Coordenadas; precision?: number | null } | null>(null);
+  const precisionGPS = useRef<number | null>(null); // metros de margen de la última ubicación
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const temporizadorAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,6 +148,7 @@ export default function Home() {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             const c: Coordenadas = [pos.coords.latitude, pos.coords.longitude];
+            precisionGPS.current = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
             setMiUbicacion(c);
             resolver(c);
           },
@@ -289,7 +291,7 @@ export default function Home() {
       (a, b) => distanciaKm(pos, [a.latitud, a.longitud]) - distanciaKm(pos, [b.latitud, b.longitud])
     )[0];
     const enEseBar = masCercano && distanciaKm(pos, [masCercano.latitud, masCercano.longitud]) <= RADIO_MISMO_BAR_KM;
-    setFormulario({ bar: enEseBar ? masCercano : null, ubicacion: pos });
+    setFormulario({ bar: enEseBar ? masCercano : null, ubicacion: pos, precision: precisionGPS.current });
   };
 
   const actualizarSeleccionado = () => {
@@ -531,7 +533,9 @@ export default function Home() {
           marcasOrdenadas={marcasOrdenadas}
           enviando={enviando}
           onEnviar={enviar}
-          onEsOtroBar={() => setFormulario({ bar: null, ubicacion: formulario.ubicacion })}
+          ubicacion={formulario.ubicacion}
+          precision={formulario.precision ?? null}
+          onEsOtroBar={() => setFormulario({ bar: null, ubicacion: formulario.ubicacion, precision: formulario.precision })}
           onCerrar={() => setFormulario(null)}
         />
       )}

@@ -1,13 +1,17 @@
 "use client";
 import { useState } from "react";
-import type { Bar, Tapa } from "@/lib/bares";
+import { Map, Overlay } from "pigeon-maps";
+import type { Bar, Coordenadas, Tapa } from "@/lib/bares";
 import { FORMATOS, euros } from "@/lib/bares";
 import type { Marca } from "@/lib/marcas";
+import { proveedor } from "./Mapa";
 
 export type DatosPrecio = { nombre: string; marca: string; formato: string; precio: number; tapa: Tapa; terraza: boolean | null };
 
 type Props = {
   bar: Bar | null; // null = bar nuevo
+  ubicacion: Coordenadas; // donde está la persona (y donde se coloca un bar nuevo)
+  precision: number | null; // margen del GPS en metros
   marcasOrdenadas: Marca[]; // de más a menos popular por la zona
   enviando: boolean;
   onEnviar: (d: DatosPrecio) => void;
@@ -22,8 +26,11 @@ const TAPAS: { id: Tapa; icono: string; texto: string }[] = [
 ];
 
 const RAPIDOS = [1.5, 2, 2.5, 3];
+const PRECISION_MAXIMA = 200; // con más margen que esto no dejamos crear un bar (p. ej. desde el ordenador de casa)
 
-export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnviar, onEsOtroBar, onCerrar }: Props) {
+const textoMargen = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`);
+
+export default function FormularioPrecio({ bar, ubicacion, precision, marcasOrdenadas, enviando, onEnviar, onEsOtroBar, onCerrar }: Props) {
   const inicial = bar?.precios.find((p) => p.formato === "Caña") ?? bar?.precios[0];
   const [nombre, setNombre] = useState(bar?.nombre ?? "");
   const [formato, setFormato] = useState<string>(inicial?.formato ?? "Caña");
@@ -32,6 +39,9 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
   const [tapa, setTapa] = useState<Tapa | "">(inicial?.tapa ?? "");
   const [verTodas, setVerTodas] = useState(false);
   const [terraza, setTerraza] = useState<boolean | null>(bar?.terraza ?? null);
+  const [estoyDentro, setEstoyDentro] = useState(false);
+  const imprecisa = !bar && precision !== null && precision > PRECISION_MAXIMA;
+  const ubicacionOk = !!bar || (estoyDentro && !imprecisa);
 
   const precioActual = bar?.precios.find((p) => p.formato === formato);
   const elegirFormato = (f: string) => {
@@ -44,7 +54,7 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
   const populares = marcasOrdenadas.slice(0, 6);
   const resto = marcasOrdenadas.slice(6);
   const marcaEnResto = resto.some((m) => m.id === marca);
-  const listo = nombre.trim().length > 1 && marca && formato && tapa && !enviando;
+  const listo = nombre.trim().length > 1 && marca && formato && tapa && ubicacionOk && !enviando;
 
   const BotonMarca = ({ m }: { m: Marca }) => (
     <button
@@ -91,10 +101,49 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
 
         <div className="mt-4 flex-1 space-y-6 overflow-y-auto px-5 pb-4">
           {!bar && (
+            <section className="rounded-3xl bg-granate p-4 text-white" aria-labelledby="aviso-sitio">
+              <p id="aviso-sitio" className="text-[19px] font-extrabold leading-tight tracking-[-0.02em]">
+                📍 Tienes que estar dentro del bar
+              </p>
+              <p className="mt-1.5 text-[14px] leading-snug text-white/85">
+                El bar se coloca en el mapa <b className="text-white">justo donde estás ahora</b>. Si lo añades desde casa, aparecerá en tu casa y
+                nadie podrá encontrarlo.
+              </p>
+              <div className="mt-3 overflow-hidden rounded-2xl bg-white/10">
+                <Map provider={proveedor} dprs={[1, 2]} center={ubicacion} zoom={17} height={130} mouseEvents={false} touchEvents={false} attribution={false}>
+                  <Overlay anchor={ubicacion} offset={[14, 34]}>
+                    <span className="block text-[30px] leading-none drop-shadow" aria-hidden>
+                      📍
+                    </span>
+                  </Overlay>
+                </Map>
+              </div>
+              <p className="mt-1.5 text-[12px] text-white/75">
+                Aquí quedará el bar{precision !== null ? ` (margen de ${textoMargen(precision)})` : ""}.
+              </p>
+              {imprecisa ? (
+                <p role="alert" className="mt-3 rounded-2xl bg-white px-3 py-2.5 text-[14px] font-semibold leading-snug text-granate">
+                  Tu ubicación no es precisa (margen de {textoMargen(precision!)}). Para añadir un bar nuevo abre Birradar en el móvil, dentro del bar y
+                  con el GPS activado.
+                </p>
+              ) : (
+                <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-3 py-3 text-[15px] font-bold text-tinta">
+                  <input
+                    type="checkbox"
+                    checked={estoyDentro}
+                    onChange={(e) => setEstoyDentro(e.target.checked)}
+                    className="h-6 w-6 shrink-0 accent-[#8B0000]"
+                  />
+                  Estoy dentro del bar ahora mismo
+                </label>
+              )}
+            </section>
+          )}
+
+          {!bar && (
             <label className="block">
               <span className="mb-2 block text-[15px] font-bold">Nombre del bar</span>
               <input
-                autoFocus
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 placeholder="Bar Casa Pepe"
@@ -207,7 +256,7 @@ export default function FormularioPrecio({ bar, marcasOrdenadas, enviando, onEnv
 
         <div className="border-t border-tinta/10 bg-zinc-barra px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <button type="submit" disabled={!listo} className="w-full rounded-2xl bg-granate py-4 text-[17px] font-bold text-white disabled:bg-tinta/15 disabled:text-tinta/45">
-            {enviando ? "Guardando…" : "Guardar precio"}
+            {enviando ? "Guardando…" : !ubicacionOk ? (imprecisa ? "Ubicación poco precisa" : "Confirma que estás en el bar") : "Guardar precio"}
           </button>
         </div>
       </form>

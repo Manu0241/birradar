@@ -5,7 +5,7 @@ import { euros } from "@/lib/bares";
 
 // Mapa de Mapbox con tu token (si no hay token, mapa normal de OpenStreetMap)
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-const proveedor = (x: number, y: number, z: number, dpr?: number) =>
+export const proveedor = (x: number, y: number, z: number, dpr?: number) =>
   TOKEN
     ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/256/${z}/${x}/${y}${dpr && dpr >= 2 ? "@2x" : ""}?access_token=${TOKEN}`
     : `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
