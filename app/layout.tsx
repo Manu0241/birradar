@@ -19,7 +19,7 @@ const descripcion =
   "Mira cuánto cuesta la caña en los bares de tu zona antes de sentarte. Precios de caña, doble y tercio, con tapa o sin ella, puestos por la gente.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://birradar.vercel.app"),
+  metadataBase: new URL("https://www.birradar.es"),
   title: "Birradar: cañas baratas cerca de ti, precios bar a bar",
   description: descripcion,
   applicationName: "Birradar",

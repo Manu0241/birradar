@@ -21,7 +21,7 @@ import { useInstalacion } from "@/lib/instalar";
 const CENTRO_INICIAL: Coordenadas = [40.489, -3.667];
 const RADIO_MISMO_BAR_KM = 0.05; // a menos de 50 m damos por hecho que estás en ese bar
 const RADIO_ACTUALIZAR_KM = 0.15; // para actualizar un bar desde su ficha hay que estar cerca
-const URL_APP = "https://birradar.vercel.app/";
+const URL_APP = "https://www.birradar.es/";
 
 const leer = (k: string) => {
   try { return localStorage.getItem(k) ?? sessionStorage.getItem(k); } catch { return null; }

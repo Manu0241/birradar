@@ -2,7 +2,7 @@
 import { supabase } from "./supabase";
 import { type Bar, type BarDB, procesarBares } from "./bares";
 
-export const URL_BASE = "https://birradar.vercel.app";
+export const URL_BASE = "https://www.birradar.es";
 
 export async function obtenerBares(): Promise<Bar[]> {
   const { data, error } = await supabase

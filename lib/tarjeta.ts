@@ -5,7 +5,7 @@ import { urlBar } from "./datos";
 const GRANATE = "#8B0000";
 const AMBAR = "#F4A81D";
 const TINTA = "#1B1A18";
-const URL_APP = "birradar.vercel.app";
+const URL_APP = "birradar.es";
 
 /** Corta un texto en líneas que quepan en `ancho` (máx. `maxLineas`). */
 function lineas(ctx: CanvasRenderingContext2D, texto: string, ancho: number, maxLineas: number) {
