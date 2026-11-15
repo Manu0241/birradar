@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 };
 
 const descripcion =
-  "Mira cuánto cuesta la caña en los bares de tu zona antes de sentarte. Precios de caña, doble y tercio, con tapa o sin ella, puestos por la gente.";
+  "Mira cuánto cuesta la caña en los bares de tu zona antes de sentarte. Precios de caña, doble, botellín, tercio y jarra, con tapa o sin ella, puestos por la gente.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.birradar.es"),

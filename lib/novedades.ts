@@ -13,6 +13,7 @@ export const NOVEDADES: Novedad[] = [
   { id: 7, fecha: "2026-11-06", icono: "✉️", titulo: "Entra con tu correo", texto: "Ya no hace falta Google: crea tu cuenta con correo y contraseña y verifícala con un código." },
   { id: 8, fecha: "2026-11-06", icono: "📝", titulo: "Notas en cada bar", texto: "Deja una nota corta en la ficha de un bar: la tapa estrella, el ambiente, cuándo hay sitio… y lee lo que cuentan los demás." },
   { id: 9, fecha: "2026-11-07", icono: "🌾", titulo: "Sin alcohol y sin gluten", texto: "Ya puedes apuntar el precio de la cerveza sin alcohol (0,0) y de la sin gluten. Las tienes en «Ver todas las marcas»." },
+  { id: 10, fecha: "2026-11-15", icono: "🍻", titulo: "Jarras", texto: "Nuevo tamaño jarra: apunta lo que cuesta la jarra en tu bar y mira dónde sale más barata." },
 ];
 
 export const ULTIMA_NOVEDAD = NOVEDADES.reduce((m, n) => Math.max(m, n.id), 0);

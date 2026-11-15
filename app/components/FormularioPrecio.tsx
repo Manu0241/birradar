@@ -26,6 +26,7 @@ const TAPAS: { id: Tapa; icono: string; texto: string }[] = [
 ];
 
 const RAPIDOS = [1.5, 2, 2.5, 3];
+const RAPIDOS_JARRA = [3, 3.5, 4, 5]; // la jarra (medio litro) va bastante más cara
 const PRECISION_MAXIMA = 200; // con más margen que esto no dejamos crear un bar (p. ej. desde el ordenador de casa)
 
 const textoMargen = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`);
@@ -48,6 +49,7 @@ export default function FormularioPrecio({ bar, ubicacion, precision, marcasOrde
     setFormato(f);
     const p = bar?.precios.find((x) => x.formato === f);
     if (p) setPrecio(p.precio);
+    else if (f === "Jarra") setPrecio((x) => Math.max(x, 3.5));
   };
   const ajustar = (d: number) => setPrecio((p) => Math.min(15, Math.max(0.5, Math.round((p + d) * 100) / 100)));
 
@@ -155,14 +157,14 @@ export default function FormularioPrecio({ bar, ubicacion, precision, marcasOrde
 
           <fieldset>
             <legend className="mb-2 text-[15px] font-bold">Tamaño</legend>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-1.5">
               {FORMATOS.map((f) => (
                 <button
                   key={f}
                   type="button"
                   onClick={() => elegirFormato(f)}
                   aria-pressed={formato === f}
-                  className={`rounded-2xl px-1 py-3 text-[14px] font-bold ${formato === f ? "bg-tinta text-white" : "bg-white ring-1 ring-tinta/10"}`}
+                  className={`rounded-2xl px-0 py-3 text-[13px] font-bold ${formato === f ? "bg-tinta text-white" : "bg-white ring-1 ring-tinta/10"}`}
                 >
                   {f}
                 </button>
@@ -188,7 +190,7 @@ export default function FormularioPrecio({ bar, ubicacion, precision, marcasOrde
               </button>
             </div>
             <div className="mt-4 grid grid-cols-4 gap-2">
-              {RAPIDOS.map((r) => (
+              {(formato === "Jarra" ? RAPIDOS_JARRA : RAPIDOS).map((r) => (
                 <button
                   key={r}
                   type="button"

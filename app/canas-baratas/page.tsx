@@ -9,7 +9,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "Cañas baratas en Madrid: ranking de precios por bar · Birradar",
   description:
-    "Dónde tomar la caña más barata en Madrid. Precios de caña, doble y tercio en cada bar, con tapa o sin ella, actualizados por la gente.",
+    "Dónde tomar la caña más barata en Madrid. Precios de caña, doble, botellín, tercio y jarra en cada bar, con tapa o sin ella, actualizados por la gente.",
   alternates: { canonical: `${URL_BASE}/canas-baratas` },
 };
 
