@@ -20,6 +20,22 @@ type ResenaPanel = {
 };
 type BarPanel = { id: string; nombre: string; latitud: number; longitud: number; resenas: { id: string; fecha: string }[] };
 type NotaPanel = { id: string; texto: string; creado: string; user_id: string; id_bar: string };
+type Cuenta = {
+  id: string;
+  nombre: string | null;
+  avatar_url: string | null;
+  email: string | null;
+  proveedor: string;
+  creado: string;
+  ultimo_acceso: string | null;
+  bloqueado: boolean;
+  xp: number;
+  nivel: number;
+  precios: number;
+  notas: number;
+  admin: boolean;
+};
+type Vista = "precios" | "bares" | "notas" | "cuentas";
 type Estado = "cargando" | "sin-sesion" | "sin-permiso" | "listo";
 
 const SIETE_DIAS = 7 * 86_400_000;
@@ -27,10 +43,12 @@ const SIETE_DIAS = 7 * 86_400_000;
 export default function Panel() {
   const [estado, setEstado] = useState<Estado>("cargando");
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [vista, setVista] = useState<"precios" | "bares" | "notas">("precios");
+  const [vista, setVista] = useState<Vista>("precios");
   const [resenas, setResenas] = useState<ResenaPanel[]>([]);
   const [bares, setBares] = useState<BarPanel[]>([]);
   const [notas, setNotas] = useState<NotaPanel[]>([]);
+  const [cuentas, setCuentas] = useState<Cuenta[]>([]);
+  const [borrarPrecios, setBorrarPrecios] = useState(false);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [usuarios, setUsuarios] = useState(0);
   const [busqueda, setBusqueda] = useState("");
@@ -45,7 +63,7 @@ export default function Panel() {
   };
 
   const cargar = useCallback(async () => {
-    const [r, b, p, n] = await Promise.all([
+    const [r, b, p, n, c] = await Promise.all([
       supabase
         .from("resenas")
         .select("id, precio, formato, marca, tapa, terraza, fecha, xp_ganado, user_id, id_bar")
@@ -54,7 +72,9 @@ export default function Panel() {
       supabase.from("bares").select("id, nombre, latitud, longitud, resenas ( id, fecha )"),
       supabase.from("perfiles").select("id, nombre"),
       supabase.from("notas").select("id, texto, creado, user_id, id_bar").order("creado", { ascending: false }).limit(300),
+      supabase.rpc("admin_listar_usuarios"),
     ]);
+    if (c.data) setCuentas(c.data as Cuenta[]);
     if (n.data) setNotas(n.data as NotaPanel[]);
     if (r.data) setResenas(r.data as ResenaPanel[]);
     if (b.data) setBares(b.data as BarPanel[]);
@@ -101,6 +121,9 @@ export default function Panel() {
       (nombreBar[x.id_bar] ?? "").toLowerCase().includes(texto) ||
       (nombres[x.user_id] ?? "").toLowerCase().includes(texto)
   );
+  const cuentasVisibles = cuentas.filter(
+    (c) => !texto || (c.nombre ?? "").toLowerCase().includes(texto) || (c.email ?? "").toLowerCase().includes(texto)
+  );
   const baresVisibles = bares
     .filter((b) => !texto || b.nombre.toLowerCase().includes(texto))
     .sort((a, b) => (b.resenas[0]?.fecha ?? "").localeCompare(a.resenas[0]?.fecha ?? ""));
@@ -115,7 +138,7 @@ export default function Panel() {
     return new Set(Object.keys(vistos).filter((k) => vistos[k] > 1));
   }, [bares]);
 
-  const accion = async (fn: string, args: Record<string, string>, ok: string) => {
+  const accion = async (fn: string, args: Record<string, string | boolean>, ok: string) => {
     setOcupado(true);
     const { error } = await supabase.rpc(fn, args);
     setOcupado(false);
@@ -183,18 +206,19 @@ export default function Panel() {
         ))}
       </section>
 
-      <div className="mt-5 flex gap-2">
-        {(["precios", "bares", "notas"] as const).map((v) => (
+      <div className="mt-5 flex flex-wrap gap-2">
+        {(["precios", "bares", "notas", "cuentas"] as const).map((v) => (
           <button
             key={v}
             onClick={() => {
               setVista(v);
               setConfirmar(null);
+              setEditando(null);
             }}
             aria-pressed={vista === v}
             className={`rounded-full px-4 py-2 text-sm font-bold ${vista === v ? "bg-tinta text-white" : "bg-white text-tinta/70 ring-1 ring-tinta/10"}`}
           >
-            {v === "precios" ? "Últimos precios" : v === "notas" ? `Notas (${notas.length})` : `Bares${duplicados.size ? ` (${duplicados.size} repetidos)` : ""}`}
+            {v === "precios" ? "Últimos precios" : v === "notas" ? `Notas (${notas.length})` : v === "cuentas" ? `Cuentas (${cuentas.length})` : `Bares${duplicados.size ? ` (${duplicados.size} repetidos)` : ""}`}
           </button>
         ))}
       </div>
@@ -204,7 +228,7 @@ export default function Panel() {
           type="search"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder={vista === "bares" ? "Buscar bar" : vista === "notas" ? "Buscar por texto, bar o persona" : "Buscar por bar o persona"}
+          placeholder={vista === "bares" ? "Buscar bar" : vista === "cuentas" ? "Buscar por nombre o correo" : vista === "notas" ? "Buscar por texto, bar o persona" : "Buscar por bar o persona"}
           className="w-full rounded-2xl border-0 bg-white px-4 py-3 text-[15px] outline-none ring-1 ring-tinta/10 focus:ring-2 focus:ring-ambar"
         />
       </label>
@@ -283,6 +307,173 @@ export default function Panel() {
             </li>
           ))}
           {notasVisibles.length === 0 && <p className="py-8 text-center text-tinta/55">No hay notas que coincidan.</p>}
+        </ul>
+      ) : vista === "cuentas" ? (
+        <ul className="mt-3 space-y-2">
+          {cuentasVisibles.map((c) => {
+            const nombre = c.nombre ?? "Sin perfil todavía";
+            const pidiendo = confirmar?.endsWith(c.id) ? confirmar.slice(0, confirmar.length - c.id.length) : null; // "borrar:" o "bloquear:"
+            return (
+              <li key={c.id} className={`rounded-2xl bg-white p-3 ring-1 ${c.bloqueado ? "ring-granate" : "ring-tinta/10"}`}>
+                <div className="flex items-start gap-3">
+                  {c.avatar_url ? (
+                    <img src={c.avatar_url} alt="" referrerPolicy="no-referrer" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-zinc-barra text-lg font-extrabold text-tinta/50">
+                      {nombre.trim().charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    {editando?.id === c.id ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          accion("admin_renombrar_usuario", { p_id: c.id, p_nombre: editando.nombre }, "Nombre cambiado");
+                        }}
+                        className="flex gap-2"
+                      >
+                        <label className="min-w-0 flex-1">
+                          <span className="sr-only">Nuevo nombre</span>
+                          <input
+                            autoFocus
+                            maxLength={40}
+                            value={editando.nombre}
+                            onChange={(e) => setEditando({ id: c.id, nombre: e.target.value })}
+                            className="w-full rounded-xl bg-zinc-barra px-3 py-2 font-semibold outline-none focus:ring-2 focus:ring-ambar"
+                          />
+                        </label>
+                        <button disabled={ocupado || editando.nombre.trim().length < 2} className="rounded-xl bg-tinta px-4 text-sm font-bold text-white disabled:opacity-50">
+                          Guardar
+                        </button>
+                        <button type="button" onClick={() => setEditando(null)} className="rounded-xl bg-zinc-barra px-3 text-sm font-bold">
+                          ✕
+                        </button>
+                      </form>
+                    ) : (
+                      <p className="truncate text-[16px] font-bold">
+                        {nombre}
+                        {c.admin && <span className="ml-2 rounded-md bg-ambar px-1.5 py-0.5 text-[11px] font-bold">Admin</span>}
+                        {c.bloqueado && <span className="ml-2 rounded-md bg-granate px-1.5 py-0.5 text-[11px] font-bold text-white">Bloqueada</span>}
+                      </p>
+                    )}
+                    <p className="truncate text-[13px] text-tinta/60">
+                      {c.email ?? "Sin correo"} · {c.proveedor === "google" ? "Google" : "Correo"}
+                    </p>
+                    <p className="text-[12px] text-tinta/50">
+                      Alta {haceCuanto(c.creado)}
+                      {c.ultimo_acceso ? `, último acceso ${haceCuanto(c.ultimo_acceso)}` : ", nunca ha entrado"}
+                    </p>
+                    <p className="text-[12px] text-tinta/50">
+                      Nivel {c.nivel}, {c.xp} XP · {c.precios} precios · {c.notas} notas
+                    </p>
+                  </div>
+                </div>
+
+                {!c.admin && editando?.id !== c.id && (
+                  pidiendo === "borrar:" ? (
+                    <div className="mt-3 rounded-xl bg-zinc-barra p-3">
+                      <p className="text-[14px] font-bold">¿Borrar la cuenta de {nombre}?</p>
+                      <p className="mt-1 text-[13px] text-tinta/70">
+                        Se borran su perfil, sus {c.notas} notas y su acceso. No se puede deshacer. Podría volver a registrarse con el mismo correo; si no quieres que vuelva, mejor bloquéala.
+                      </p>
+                      {c.precios > 0 && (
+                        <label className="mt-2 flex items-center gap-2 text-[14px] font-semibold">
+                          <input type="checkbox" checked={borrarPrecios} onChange={(e) => setBorrarPrecios(e.target.checked)} className="h-5 w-5 accent-granate" />
+                          Borrar también sus {c.precios} precios (si no, se quedan como anónimos)
+                        </label>
+                      )}
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          disabled={ocupado}
+                          onClick={() => accion("admin_borrar_usuario", { p_id: c.id, p_borrar_precios: borrarPrecios && c.precios > 0 }, "Cuenta borrada")}
+                          className="flex-1 rounded-xl bg-granate py-2 text-sm font-bold text-white disabled:opacity-50"
+                        >
+                          Sí, borrar la cuenta
+                        </button>
+                        <button onClick={() => setConfirmar(null)} className="flex-1 rounded-xl bg-white py-2 text-sm font-bold ring-1 ring-tinta/10">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : pidiendo === "bloquear:" ? (
+                    <div className="mt-3 rounded-xl bg-zinc-barra p-3">
+                      <p className="text-[13px] text-tinta/70">
+                        {nombre} no podrá volver a entrar y se le cierra la sesión. Sus precios y notas se quedan. Lo puedes desbloquear cuando quieras.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          disabled={ocupado}
+                          onClick={() => accion("admin_bloquear_usuario", { p_id: c.id, p_bloquear: true }, "Cuenta bloqueada")}
+                          className="flex-1 rounded-xl bg-granate py-2 text-sm font-bold text-white disabled:opacity-50"
+                        >
+                          Sí, bloquear
+                        </button>
+                        <button onClick={() => setConfirmar(null)} className="flex-1 rounded-xl bg-white py-2 text-sm font-bold ring-1 ring-tinta/10">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {c.nombre !== null && (
+                        <button onClick={() => setEditando({ id: c.id, nombre: c.nombre ?? "" })} className="rounded-xl bg-zinc-barra px-3 py-2 text-sm font-bold">
+                          Cambiar nombre
+                        </button>
+                      )}
+                      {c.avatar_url && (
+                        <button
+                          disabled={ocupado}
+                          onClick={() => accion("admin_quitar_foto", { p_id: c.id }, "Foto quitada")}
+                          className="rounded-xl bg-zinc-barra px-3 py-2 text-sm font-bold disabled:opacity-50"
+                        >
+                          Quitar foto
+                        </button>
+                      )}
+                      {c.precios + c.notas > 0 && c.nombre && (
+                        <button
+                          onClick={() => {
+                            setVista(c.precios > 0 ? "precios" : "notas");
+                            setBusqueda(c.nombre ?? "");
+                          }}
+                          className="rounded-xl bg-zinc-barra px-3 py-2 text-sm font-bold"
+                        >
+                          Ver lo que ha puesto
+                        </button>
+                      )}
+                      {c.bloqueado ? (
+                        <button
+                          disabled={ocupado}
+                          onClick={() => accion("admin_bloquear_usuario", { p_id: c.id, p_bloquear: false }, "Cuenta desbloqueada")}
+                          className="rounded-xl bg-zinc-barra px-3 py-2 text-sm font-bold disabled:opacity-50"
+                        >
+                          Desbloquear
+                        </button>
+                      ) : (
+                        <button onClick={() => setConfirmar("bloquear:" + c.id)} className="rounded-xl bg-zinc-barra px-3 py-2 text-sm font-bold text-granate">
+                          Bloquear
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setBorrarPrecios(false);
+                          setConfirmar("borrar:" + c.id);
+                        }}
+                        className="rounded-xl px-3 py-2 text-sm font-semibold text-granate underline underline-offset-2"
+                      >
+                        Borrar cuenta
+                      </button>
+                    </div>
+                  )
+                )}
+                {c.admin && editando?.id !== c.id && c.nombre !== null && (
+                  <button onClick={() => setEditando({ id: c.id, nombre: c.nombre ?? "" })} className="mt-3 rounded-xl bg-zinc-barra px-3 py-2 text-sm font-bold">
+                    Cambiar nombre
+                  </button>
+                )}
+              </li>
+            );
+          })}
+          {cuentasVisibles.length === 0 && <p className="py-8 text-center text-tinta/55">No hay cuentas que coincidan.</p>}
         </ul>
       ) : (
         <ul className="mt-3 space-y-2">
