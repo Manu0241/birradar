@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -363,9 +363,22 @@ export default function Home() {
     } catch {}
   };
 
+  // Escape cierra lo que esté abierto encima (formulario, perfil, acceso o la ficha del bar)
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (formulario) setFormulario(null);
+      else if (perfilAbierto) setPerfilAbierto(false);
+      else if (accesoAbierto) setAccesoAbierto(false);
+      else if (seleccionadoId) setSeleccionadoId(null);
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [formulario, perfilAbierto, accesoAbierto, seleccionadoId]);
+
   // ---------- Pantalla ----------
   return (
-    <main className="relative mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden bg-zinc-barra sm:border-x sm:border-tinta/10">
+    <main className="relative mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden border-tinta/10 bg-zinc-barra sm:border-x lado:max-w-none lado:flex-row lado:border-x-0 lado:[--panel:clamp(340px,30vw,440px)]">
       {splash !== "fuera" && (
         <div className={`absolute inset-0 z-[100] grid place-items-center bg-granate transition-opacity duration-400 ${splash === "saliendo" ? "opacity-0" : "opacity-100"}`}>
           <div className="flex flex-col items-center">
@@ -378,7 +391,11 @@ export default function Home() {
       )}
 
       {/* Mapa */}
-      <section className="relative shrink-0 transition-[height] duration-300 ease-out" style={{ height: hojaAlta ? "24dvh" : "58dvh" }} aria-label="Mapa de bares">
+      <section
+        className="relative h-[var(--alto-mapa)] shrink-0 transition-[height] duration-300 ease-out lado:h-full lado:min-w-0 lado:flex-1 lado:shrink"
+        style={{ "--alto-mapa": hojaAlta ? "24dvh" : "58dvh" } as CSSProperties}
+        aria-label="Mapa de bares"
+      >
         <Mapa
           centro={centro}
           zoom={zoom}
@@ -424,7 +441,7 @@ export default function Home() {
         <button
           onClick={centrarEnMi}
           aria-label="Centrar el mapa en mi ubicación"
-          className="absolute bottom-10 right-4 grid h-12 w-12 place-items-center rounded-full bg-white shadow-md active:scale-95"
+          className="absolute bottom-10 right-4 grid h-12 w-12 place-items-center rounded-full bg-white shadow-md hover:bg-zinc-barra active:scale-95 lado:bottom-6 lado:right-[max(1.5rem,env(safe-area-inset-right))]"
         >
           <svg viewBox="0 0 24 24" className="h-6 w-6 text-blue-700" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <circle cx="12" cy="12" r="4" />
@@ -434,15 +451,15 @@ export default function Home() {
       </section>
 
       {/* Hoja inferior con la lista o la ficha del bar */}
-      <section className="relative z-10 -mt-6 flex min-h-0 flex-1 flex-col rounded-t-[28px] bg-white shadow-[0_-10px_30px_-12px_rgba(27,26,24,0.35)]">
+      <section className="relative z-10 -mt-6 flex min-h-0 flex-1 flex-col rounded-t-[28px] bg-white shadow-[0_-10px_30px_-12px_rgba(27,26,24,0.35)] lado:order-first lado:mt-0 lado:w-[var(--panel)] lado:flex-none lado:rounded-none lado:pl-[env(safe-area-inset-left)] lado:shadow-[10px_0_30px_-14px_rgba(27,26,24,0.35)]">
         <button
           onClick={() => setHojaAlta((a) => !a)}
           aria-label={hojaAlta ? "Ver más mapa" : "Ver más lista"}
-          className="mx-auto flex h-7 w-24 shrink-0 items-center justify-center"
+          className="mx-auto flex h-7 w-24 shrink-0 items-center justify-center lado:hidden"
         >
           <span className="h-1.5 w-12 rounded-full bg-tinta/15" />
         </button>
-        <div ref={hojaRef} className="min-h-0 flex-1 overflow-y-auto pb-28">
+        <div ref={hojaRef} className="min-h-0 flex-1 overflow-y-auto pb-28 lado:pt-6">
           {seleccionado ? (
             <FichaBar
               bar={seleccionado}
@@ -479,7 +496,7 @@ export default function Home() {
       {!seleccionado && (
         <button
           onClick={anadirPrecio}
-          className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full bg-granate py-2 pl-2 pr-6 text-[17px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(139,0,0,0.7)] active:scale-95"
+          className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full bg-granate py-2 pl-2 pr-6 text-[17px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(139,0,0,0.7)] hover:bg-granate-oscuro active:scale-95 lado:left-[calc(var(--panel)/2+env(safe-area-inset-left)/2)]"
         >
           <span className="posavasos h-10 w-10 text-xl">
             <span className="relative z-10 -mt-0.5">+</span>
@@ -495,7 +512,7 @@ export default function Home() {
       )}
 
       {avisoVisitas && instalar && !bienvenida && novedades.length === 0 && splash === "fuera" && !formulario && (
-        <div className="entra absolute inset-x-4 top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] z-[55] flex items-center gap-3 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-tinta/10">
+        <div className="entra absolute inset-x-4 top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] z-[55] flex items-center gap-3 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-tinta/10 lado:left-auto lado:right-4 lado:w-96">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icono-192.png" alt="" className="h-11 w-11 rounded-xl" />
           <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug">Ten Birradar en tu pantalla de inicio, como una app.</p>

@@ -157,12 +157,12 @@ export default function Acceso({ onCerrar, onEntrado }: { onCerrar: () => void; 
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col justify-end bg-tinta/40 backdrop-blur-[2px]" onClick={onCerrar}>
+    <div className="fixed inset-0 z-[80] flex flex-col justify-end bg-tinta/40 backdrop-blur-[2px] lado:items-center lado:justify-center lado:p-6" onClick={onCerrar}>
       <div
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={titulos[modo][0]}
-        className="entra mx-auto max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-zinc-barra px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5"
+        className="entra mx-auto max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-zinc-barra px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 lado:rounded-[32px] lado:pb-6 lado:shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div>

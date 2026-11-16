@@ -73,14 +73,14 @@ export default function FormularioPrecio({ bar, ubicacion, precision, marcasOrde
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-tinta/40 backdrop-blur-[2px]" onClick={onCerrar}>
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-tinta/40 backdrop-blur-[2px] lado:items-center lado:justify-center lado:p-6" onClick={onCerrar}>
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();
           if (listo) onEnviar({ nombre: nombre.trim(), marca, formato, precio, tapa: tapa as Tapa, terraza });
         }}
-        className="entra mx-auto flex max-h-[94dvh] w-full max-w-md flex-col rounded-t-[32px] bg-zinc-barra"
+        className="entra mx-auto flex max-h-[94dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[32px] bg-zinc-barra lado:max-h-[min(94dvh,880px)] lado:rounded-[32px] lado:shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div>

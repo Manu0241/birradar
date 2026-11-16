@@ -54,7 +54,7 @@ export default function ListaBares(p: Props) {
       </div>
 
       {/* Orden */}
-      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5" role="tablist" aria-label="Ordenar bares">
+      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 lado:flex-wrap lado:overflow-visible" role="tablist" aria-label="Ordenar bares">
         {ORDENES.map((o) => (
           <button
             key={o.id}
@@ -80,7 +80,7 @@ export default function ListaBares(p: Props) {
       </div>
 
       {/* Marcas populares como filtro rápido */}
-      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 pb-1">
+      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 pb-1 lado:flex-wrap lado:overflow-visible">
         {p.marcasTop.map((m) => {
           const activa = p.filtroMarca === m.id;
           return (
@@ -104,7 +104,7 @@ export default function ListaBares(p: Props) {
           const marca = infoMarca(bar.marca);
           return (
             <li key={bar.id}>
-              <button onClick={() => p.onElegirBar(bar)} className="flex w-full items-center gap-4 rounded-2xl px-2 py-3 text-left active:bg-zinc-barra">
+              <button onClick={() => p.onElegirBar(bar)} className="flex w-full items-center gap-4 rounded-2xl px-2 py-3 text-left hover:bg-zinc-barra/60 active:bg-zinc-barra">
                 <span className="posavasos h-14 w-14 shrink-0 text-[15px]" data-chollo={bar.chollo}>
                   <span className="relative z-10">{euros(bar.precioDesde)}</span>
                 </span>

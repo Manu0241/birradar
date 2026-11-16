@@ -11,6 +11,17 @@
   --font-sans: var(--font-bricolage), system-ui, sans-serif;
 }
 
+/* Pantallas anchas (tablet, ordenador) y móviles en horizontal: lista a un lado y mapa al otro */
+@custom-variant lado (@media (width >= 48rem), (orientation: landscape) and (max-height: 32rem) and (width >= 34rem));
+
+/* Con ratón, todo lo que se puede pulsar enseña la manita */
+button:not(:disabled),
+[role="button"],
+select,
+label:has(input[type="checkbox"]) {
+  cursor: pointer;
+}
+
 html,
 body {
   height: 100%;
