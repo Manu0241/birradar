@@ -54,7 +54,7 @@ export default function ListaBares(p: Props) {
       </div>
 
       {/* Orden */}
-      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 lado:flex-wrap lado:overflow-visible" role="tablist" aria-label="Ordenar bares">
+      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 lg:flex-wrap lg:overflow-visible" role="tablist" aria-label="Ordenar bares">
         {ORDENES.map((o) => (
           <button
             key={o.id}
@@ -80,7 +80,7 @@ export default function ListaBares(p: Props) {
       </div>
 
       {/* Marcas populares como filtro rápido */}
-      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 pb-1 lado:flex-wrap lado:overflow-visible">
+      <div className="sin-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 pb-1 lg:flex-wrap lg:overflow-visible">
         {p.marcasTop.map((m) => {
           const activa = p.filtroMarca === m.id;
           return (
