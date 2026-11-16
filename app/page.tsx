@@ -378,7 +378,7 @@ export default function Home() {
 
   // ---------- Pantalla ----------
   return (
-    <main className="relative mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden border-tinta/10 bg-zinc-barra sm:border-x lado:max-w-none lado:flex-row lado:border-x-0 lado:[--panel:clamp(340px,30vw,440px)]">
+    <main className="relative mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden bg-zinc-barra sm:max-w-none lado:flex-row lado:[--panel:clamp(360px,32vw,440px)]">
       {splash !== "fuera" && (
         <div className={`absolute inset-0 z-[100] grid place-items-center bg-granate transition-opacity duration-400 ${splash === "saliendo" ? "opacity-0" : "opacity-100"}`}>
           <div className="flex flex-col items-center">

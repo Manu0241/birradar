@@ -45,8 +45,8 @@ export default function Perfil(p: Props) {
   const C = 2 * Math.PI * R;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-tinta/40 backdrop-blur-[2px] lado:items-center lado:justify-center lado:p-6" onClick={p.onCerrar}>
-      <div onClick={(e) => e.stopPropagation()} className="entra mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-zinc-barra px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 lado:rounded-[32px] lado:pb-6 lado:shadow-2xl">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-tinta/40 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-6" onClick={p.onCerrar}>
+      <div onClick={(e) => e.stopPropagation()} className="entra mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-zinc-barra px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:rounded-[32px] sm:pb-6 sm:shadow-2xl">
         <div className="flex items-center justify-between">
           <div className="flex rounded-full bg-white p-1 ring-1 ring-tinta/10" role="tablist">
             {(["yo", "ranking"] as const).map((v) => (
