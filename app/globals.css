@@ -13,7 +13,14 @@
 
 /* Ordenador, tablet en horizontal y móvil en horizontal: lista a un lado y mapa al otro.
    (La tablet en vertical se queda con mapa arriba y lista abajo, a todo lo ancho.) */
-@custom-variant lado (@media (width >= 64rem), (orientation: landscape) and (width >= 34rem));
+@custom-variant lado {
+  @media (width >= 64rem) {
+    @slot;
+  }
+  @media (orientation: landscape) and (width >= 34rem) {
+    @slot;
+  }
+}
 
 /* Con ratón, todo lo que se puede pulsar enseña la manita */
 button:not(:disabled),
