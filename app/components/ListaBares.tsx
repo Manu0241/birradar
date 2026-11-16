@@ -109,8 +109,8 @@ export default function ListaBares(p: Props) {
                   <span className="relative z-10">{euros(bar.precioDesde)}</span>
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="truncate text-[17px] font-bold capitalize tracking-[-0.01em]">{bar.nombre}</span>
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="max-w-full truncate text-[17px] font-bold capitalize tracking-[-0.01em]">{bar.nombre}</span>
                     {bar.chollo && <span className="shrink-0 rounded-md bg-granate px-1.5 py-0.5 text-[11px] font-bold text-white">Chollo</span>}
                     {bar.precioViejo && <span className="shrink-0 rounded-md bg-ambar px-1.5 py-0.5 text-[11px] font-bold">XP doble</span>}
                   </span>
