@@ -472,6 +472,7 @@ export default function Home() {
               usuario={usuario}
               onEntrar={entrar}
               avisar={avisar}
+              esAdmin={esAdmin}
             />
           ) : (
             <ListaBares

@@ -19,9 +19,10 @@ type Props = {
   usuario: User | null;
   onEntrar: () => void;
   avisar: (texto: string) => void;
+  esAdmin?: boolean; // el administrador ve además el botón del cartel para el bar
 };
 
-export default function FichaBar({ bar, origen, rey, puedeActualizar, onActualizar, onCompartir, onCerrar, usuario, onEntrar, avisar }: Props) {
+export default function FichaBar({ bar, origen, rey, puedeActualizar, onActualizar, onCompartir, onCerrar, usuario, onEntrar, avisar, esAdmin }: Props) {
 
   return (
     <div className="entra px-5">
@@ -121,6 +122,18 @@ export default function FichaBar({ bar, origen, rey, puedeActualizar, onActualiz
       >
         {puedeActualizar ? "Actualizar precio" : "Acércate al bar para actualizar el precio"}
       </button>
+
+      {esAdmin && (
+        <a
+          href={`/cartel/${bar.id}`}
+          target="_blank"
+          rel="noopener"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25312B] py-3.5 text-[15px] font-bold text-[#F4C542] hover:bg-[#1c2621]"
+        >
+          Descargar cartel con QR para el bar
+          <span className="rounded-md bg-[#F4C542] px-1.5 py-0.5 text-[11px] font-bold text-[#25312B]">Admin</span>
+        </a>
+      )}
 
       <NotasBar barId={bar.id} usuario={usuario} onEntrar={onEntrar} avisar={avisar} />
     </div>
